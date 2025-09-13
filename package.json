@@ -1,6 +1,6 @@
 {
   "name": "@xtr-dev/payload-notifications",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "description": "A PayloadCMS plugin that adds a configurable notifications collection for sending messages with titles, content, and attachable relationship items",
   "license": "MIT",
   "type": "module",
