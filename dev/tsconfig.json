@@ -1,0 +1,43 @@
+{
+  "extends": "../tsconfig.json",
+  "exclude": [],
+  "include": [
+    "**/*.js",
+    "**/*.jsx",
+    "**/*.mjs",
+    "**/*.cjs",
+    "**/*.ts",
+    "**/*.tsx",
+    "next.config.mjs",
+    ".next/types/**/*.ts"
+  ],
+  "compilerOptions": {
+    "baseUrl": "./",
+    "rootDir": "./",
+    "paths": {
+      "@payload-config": [
+        "./payload.config.ts"
+      ],
+      "@xtr-dev/payload-notifications": [
+        "../src/index.ts"
+      ],
+      "@xtr-dev/payload-notifications/client": [
+        "../src/exports/client.ts"
+      ],
+      "@xtr-dev/payload-notifications/rsc": [
+        "../src/exports/rsc.ts"
+      ]
+    },
+    "noEmit": true,
+    "emitDeclarationOnly": false,
+    "allowJs": true,
+    "incremental": true,
+    "isolatedModules": true,
+    "jsx": "preserve",
+    "plugins": [
+      {
+        "name": "next"
+      }
+    ]
+  }
+}
