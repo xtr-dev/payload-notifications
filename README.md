@@ -1,5 +1,7 @@
 # @xtr-dev/payload-notifications
 
+[![npm version](https://badge.fury.io/js/@xtr-dev%2Fpayload-notifications.svg)](https://www.npmjs.com/package/@xtr-dev/payload-notifications)
+
 A PayloadCMS plugin that adds a configurable notifications collection for sending messages with titles, content, and attachable relationship items.
 
 ⚠️ **Pre-release Warning**: This package is currently in active development (v0.0.x). Breaking changes may occur before v1.0.0. Not recommended for production use.
