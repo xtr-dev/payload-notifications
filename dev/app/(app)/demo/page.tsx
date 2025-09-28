@@ -75,27 +75,8 @@ export default function DemoPage() {
     setLoading(true)
     try {
       await pushManager.unsubscribe()
-
-      // Remove the subscription from Payload's database
-      const response = await fetch('/api/push-notifications/unsubscribe', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-          user: 'customer@example.com', // Associate with the demo customer user
-        }),
-      })
-
-      if (response.ok) {
-        setIsSubscribed(false)
-        alert('Successfully unsubscribed from push notifications')
-      } else {
-        const error = await response.text()
-        console.warn('Failed to remove subscription from database:', error)
-        setIsSubscribed(false)
-        alert('Unsubscribed from browser, but may still be in database')
-      }
+      setIsSubscribed(false)
+      alert('Successfully unsubscribed from push notifications')
     } catch (error) {
       console.error('Failed to unsubscribe:', error)
       alert('Failed to unsubscribe from push notifications: ' + (error as Error).message)

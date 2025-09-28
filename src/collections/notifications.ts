@@ -188,9 +188,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
                 return
               }
 
-              let recipientId: string
+              let recipientId: string|number
 
-              if (typeof doc.recipient === 'string') {
+              if (typeof doc.recipient === 'string' || typeof doc.recipient === 'number') {
                 recipientId = doc.recipient
               } else if (doc.recipient?.id) {
                 recipientId = doc.recipient.id

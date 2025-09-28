@@ -57,7 +57,7 @@ export class WebPushManager {
    * Send push notification to all active subscriptions for a recipient
    */
   public async sendToRecipient(
-    recipientId: string,
+    recipientId: string|number,
     title: string,
     body: string,
     options?: {
@@ -186,7 +186,7 @@ export class WebPushManager {
    * Subscribe a user to push notifications
    */
   public async subscribe(
-    userId: string,
+    userId: string | number,
     subscription: PushSubscription,
     userAgent?: string,
     channels?: string[]
@@ -216,15 +216,6 @@ export class WebPushManager {
           },
         })
       } else {
-        console.info({
-          user: userId,
-          endpoint: subscription.endpoint,
-          p256dh: subscription.keys.p256dh,
-          auth: subscription.keys.auth,
-          userAgent,
-          channels,
-          isActive: true,
-        })
         // Create new subscription
         await this.payload.create({
           collection: 'push-subscriptions',

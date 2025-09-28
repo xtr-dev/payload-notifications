@@ -36,7 +36,7 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
 
           const pushManager = new WebPushManager(webPushConfig, req.payload)
           await pushManager.subscribe(
-            String(req.user.id),
+            req.user.id,
             subscription,
             userAgent,
             channels
