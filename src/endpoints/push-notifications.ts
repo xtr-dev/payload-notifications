@@ -24,11 +24,11 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           }
 
           const body = await req.json?.()
-          if (!body) {
+          if (!body || !(typeof body === 'object' && 'subscription' in body && 'userAgent' in body && 'channels' in body)) {
             return Response.json({ error: 'Invalid request body' }, { status: 400 })
           }
 
-          const { subscription, userAgent, channels } = body
+          const { subscription, userAgent, channels } = body as { subscription: any, userAgent: string, channels: string[] }
 
           if (!subscription || !subscription.endpoint) {
             return Response.json({ error: 'Invalid subscription data' }, { status: 400 })
@@ -60,11 +60,11 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
       handler: async (req: PayloadRequest) => {
         try {
           const body = await req.json?.()
-          if (!body) {
+          if (!body || !(typeof body === 'object' && 'endpoint' in body)) {
             return Response.json({ error: 'Invalid request body' }, { status: 400 })
           }
 
-          const { endpoint } = body
+          const { endpoint } = body as { endpoint: string }
 
           if (!endpoint) {
             return Response.json({ error: 'Endpoint is required' }, { status: 400 })
@@ -97,149 +97,6 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           console.error('VAPID key error:', error)
           return Response.json(
             { error: 'Failed to get VAPID public key' },
-            { status: 500 }
-          )
-        }
-      },
-    },
-
-    // Send test notification (admin only)
-    {
-      path: '/push-notifications/test',
-      method: 'post',
-      handler: async (req: PayloadRequest) => {
-        try {
-          if (!req.user || req.user.role !== 'admin') {
-            return Response.json({ error: 'Admin access required' }, { status: 403 })
-          }
-
-          const body = await req.json?.()
-          if (!body) {
-            return Response.json({ error: 'Invalid request body' }, { status: 400 })
-          }
-
-          const { userId, title, body: messageBody, options: notificationOptions } = body
-
-          if (!userId || !title || !messageBody) {
-            return Response.json(
-              { error: 'userId, title, and body are required' },
-              { status: 400 }
-            )
-          }
-
-          const pushManager = new WebPushManager(webPushConfig, req.payload)
-          const results = await pushManager.sendToUser(
-            userId,
-            title,
-            messageBody,
-            notificationOptions
-          )
-
-          return Response.json({
-            success: true,
-            results,
-            sent: results.filter(r => r.success).length,
-            failed: results.filter(r => !r.success).length,
-          })
-        } catch (error: any) {
-          console.error('Test notification error:', error)
-          return Response.json(
-            { error: 'Failed to send test notification' },
-            { status: 500 }
-          )
-        }
-      },
-    },
-
-    // Send notification to user (authenticated users can send to themselves, admins to anyone)
-    {
-      path: '/push-notifications/send',
-      method: 'post',
-      handler: async (req: PayloadRequest) => {
-        try {
-          if (!req.user) {
-            return Response.json({ error: 'Authentication required' }, { status: 401 })
-          }
-
-          const body = await req.json?.()
-          if (!body) {
-            return Response.json({ error: 'Invalid request body' }, { status: 400 })
-          }
-
-          const { userId, title, body: messageBody, options: notificationOptions } = body
-
-          if (!userId || !title || !messageBody) {
-            return Response.json(
-              { error: 'userId, title, and body are required' },
-              { status: 400 }
-            )
-          }
-
-          // Users can only send notifications to themselves, admins can send to anyone
-          if (userId !== req.user.id && req.user.role !== 'admin') {
-            return Response.json(
-              { error: 'You can only send notifications to yourself' },
-              { status: 403 }
-            )
-          }
-
-          const pushManager = new WebPushManager(webPushConfig, req.payload)
-          const results = await pushManager.sendToUser(
-            userId,
-            title,
-            messageBody,
-            notificationOptions
-          )
-
-          return Response.json({
-            success: true,
-            results,
-            sent: results.filter(r => r.success).length,
-            failed: results.filter(r => !r.success).length,
-          })
-        } catch (error: any) {
-          console.error('Send notification error:', error)
-          return Response.json(
-            { error: 'Failed to send notification' },
-            { status: 500 }
-          )
-        }
-      },
-    },
-
-    // Tracking endpoint for analytics
-    {
-      path: '/push-notifications/track',
-      method: 'post',
-      handler: async (req: PayloadRequest) => {
-        try {
-          const body = await req.json?.()
-          if (!body) {
-            return Response.json({ error: 'Invalid request body' }, { status: 400 })
-          }
-
-          const { action, notificationId, timestamp } = body
-
-          // Log the tracking event (you can extend this to save to database)
-          console.log('Push notification tracking:', {
-            action,
-            notificationId,
-            timestamp,
-            userAgent: req.headers.get('user-agent'),
-            // Note: req.ip may not be available in all environments
-          })
-
-          // You could save tracking data to a collection here
-          // await req.payload.create({
-          //   collection: 'notification-analytics',
-          //   data: { action, notificationId, timestamp, ... }
-          // })
-
-          return Response.json({ success: true })
-        } catch (error: any) {
-          console.error('Tracking error:', error)
-          return Response.json(
-            { error: 'Failed to track notification event' },
             { status: 500 }
           )
         }

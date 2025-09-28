@@ -143,7 +143,7 @@ export function usePushNotifications(vapidPublicKey: string) {
 
   const [isSupported, setIsSupported] = ReactHooks.useState(false)
   const [isSubscribed, setIsSubscribed] = ReactHooks.useState(false)
-  const [permission, setPermission] = ReactHooks.useState('default' as NotificationPermission)
+  const [permission, setPermission] = ReactHooks.useState('default')
   const [pushManager, setPushManager] = ReactHooks.useState(null)
 
   ReactHooks.useEffect(() => {
