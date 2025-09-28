@@ -12,7 +12,4 @@ export type {
   WebPushConfig,
   PushSubscription,
   NotificationsPluginOptions,
-  NotificationRelationship,
-  NotificationCollectionConfig,
-  NotificationAccess,
 } from '../types'

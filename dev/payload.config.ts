@@ -5,8 +5,8 @@ import { buildConfig } from 'payload'
 import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
-import { testEmailAdapter } from './helpers/testEmailAdapter.ts'
-import { seed } from './seed.ts'
+import {testEmailAdapter} from "./helpers/testEmailAdapter"
+import {seed} from "./seed"
 import { notificationsPlugin } from '@xtr-dev/payload-notifications'
 
 const filename = fileURLToPath(import.meta.url)
@@ -79,45 +79,28 @@ const buildConfigWithMemoryDB = async () => {
     plugins: [
       // Demo of the notifications plugin with relationships and channels
       notificationsPlugin({
-        collections: {
-          slug: 'notifications',
-          labels: {
-            singular: 'Notification',
-            plural: 'Notifications'
-          }
-        },
         channels: [
           {
             id: 'general',
             name: 'General Notifications',
             description: 'General updates and announcements',
-            defaultEnabled: true
           },
           {
             id: 'orders',
             name: 'Order Updates',
             description: 'Order status changes and shipping notifications',
-            defaultEnabled: true
           },
           {
             id: 'products',
             name: 'Product Updates',
             description: 'New products, restocks, and price changes',
-            defaultEnabled: false
           },
           {
             id: 'marketing',
             name: 'Marketing & Promotions',
             description: 'Special offers, sales, and promotional content',
-            defaultEnabled: false
           }
         ],
-        access: {
-          read: ({ req }: { req: any }) => Boolean(req.user),
-          create: ({ req }: { req: any }) => Boolean(req.user),
-          update: ({ req }: { req: any }) => Boolean(req.user),
-          delete: ({ req }: { req: any }) => Boolean(req.user?.role === 'admin'),
-        },
         webPush: {
           enabled: true,
           autoPush: true, // Enable automatic push notifications

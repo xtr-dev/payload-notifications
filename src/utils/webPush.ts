@@ -151,8 +151,8 @@ export class WebPushManager {
     )
 
     return results.map((result) =>
-      result.status === 'fulfilled' 
-        ? result.value 
+      result.status === 'fulfilled'
+        ? result.value
         : { success: false, error: result.reason }
     )
   }
@@ -211,11 +211,20 @@ export class WebPushManager {
             p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
             userAgent,
-            channels: channels || ['all'],
+            channels,
             isActive: true,
           },
         })
       } else {
+        console.info({
+          user: userId,
+          endpoint: subscription.endpoint,
+          p256dh: subscription.keys.p256dh,
+          auth: subscription.keys.auth,
+          userAgent,
+          channels,
+          isActive: true,
+        })
         // Create new subscription
         await this.payload.create({
           collection: 'push-subscriptions',
@@ -225,7 +234,7 @@ export class WebPushManager {
             p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
             userAgent,
-            channels: channels || ['all'],
+            channels,
             isActive: true,
           },
         })

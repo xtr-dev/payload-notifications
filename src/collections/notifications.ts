@@ -1,68 +1,32 @@
 import type { CollectionConfig, Field } from 'payload'
-import type { NotificationsPluginOptions, NotificationAccess } from '../types'
-import { buildRelationshipFields } from '../utils/buildFields'
+import type { NotificationsPluginOptions } from '../types'
 import { WebPushManager } from '../utils/webPush'
 import { defaultNotificationTransformer } from '../utils/richTextExtractor'
 
 /**
  * Creates the notifications collection configuration
- * Includes core fields plus dynamically generated relationship fields
  */
-export function createNotificationsCollection(options: NotificationsPluginOptions = {}): CollectionConfig {
-  const {
-    collections = {},
-    relationships = [],
-    access = {},
-    fields: customFields = [],
-  } = options
-
-  const slug = collections.slug || 'notifications'
+export function createNotificationsCollection(options: NotificationsPluginOptions): CollectionConfig {
+  const slug = 'notifications'
   const labels = {
-    singular: collections.labels?.singular || 'Notification',
-    plural: collections.labels?.plural || 'Notifications',
+    singular: 'Notification',
+    plural: 'Notifications',
+  }
+
+  if (options.channels.length === 0) {
+    throw new Error('No channels defined for notifications plugin')
   }
 
   // Default access control - authenticated users can read, admins can manage
-  const defaultAccess: NotificationAccess = {
+  const access: CollectionConfig['access'] = {
     read: ({ req }: { req: any }) => Boolean(req.user),
     create: ({ req }: { req: any }) => Boolean(req.user),
     update: ({ req }: { req: any }) => Boolean(req.user),
     delete: ({ req }: { req: any }) => Boolean(req.user?.role === 'admin'),
   }
 
-  // Build channel field if channels are configured
-  const channelField: Field[] = options.channels && options.channels.length > 0 ? [
-    {
-      name: 'channel',
-      type: 'select',
-      label: 'Channel',
-      options: options.channels.map(channel => ({
-        label: channel.name,
-        value: channel.id,
-      })),
-      required: false,
-      admin: {
-        description: 'The notification channel - only subscribers to this channel will receive the notification',
-        position: 'sidebar',
-      },
-    },
-  ] : []
-
-  // Default recipient field (relationship to users)
-  // Users can add custom recipient fields via the fields option and use findSubscriptions hook
-  const recipientField: Field = {
-    name: 'recipient',
-    type: 'relationship',
-    relationTo: 'users',
-    label: 'Recipient',
-    required: false,
-    admin: {
-      description: 'The user who should receive this notification (optional if using custom recipient fields)',
-    },
-  }
-
   // Build core fields
-  const coreFields: Field[] = [
+  const allFields: Field[] = [
     {
       name: 'title',
       type: 'text',
@@ -81,8 +45,30 @@ export function createNotificationsCollection(options: NotificationsPluginOption
         description: 'The notification message content',
       },
     },
-    recipientField,
-    ...channelField,
+    {
+      name: 'recipient',
+      type: 'relationship',
+      relationTo: 'users',
+      label: 'Recipient',
+      required: false,
+      admin: {
+        description: 'The user who should receive this notification (optional if using custom recipient fields)',
+      },
+    },
+    {
+      name: 'channel',
+      type: 'select',
+      label: 'Channel',
+      options: options.channels.map(channel => ({
+        label: channel.name,
+        value: channel.id,
+      })),
+      required: false,
+      admin: {
+        description: 'The notification channel - only subscribers to this channel will receive the notification',
+        position: 'sidebar',
+      },
+    },
     {
       name: 'isRead',
       type: 'checkbox',
@@ -105,12 +91,6 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     },
   ]
 
-  // Build relationship fields
-  const relationshipFields = buildRelationshipFields(relationships)
-
-  // Combine all fields
-  const allFields = [...coreFields, ...relationshipFields, ...customFields]
-
   const config: CollectionConfig = {
     slug,
     labels,
@@ -120,12 +100,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       description: 'Manage user notifications and messaging',
     },
     fields: allFields,
-    access: {
-      read: access.read || defaultAccess.read!,
-      create: access.create || defaultAccess.create!,
-      update: access.update || defaultAccess.update!,
-      delete: access.delete || defaultAccess.delete!,
-    },
+    access,
     timestamps: true,
   }
 
@@ -155,7 +130,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
               // Use custom hook to find subscriptions
               console.log('[Notifications Plugin] Using custom findSubscriptions hook')
               const subscriptions = await webPushConfig.findSubscriptions(doc, req.payload)
-              
+
               if (!subscriptions || subscriptions.length === 0) {
                 console.log('[Notifications Plugin] No subscriptions found via custom hook')
                 return
@@ -199,10 +174,10 @@ export function createNotificationsCollection(options: NotificationsPluginOption
                     return { success: false, error }
                   }
                 })
-              ).then(results => 
+              ).then(results =>
                 results.map((result) =>
-                  result.status === 'fulfilled' 
-                    ? result.value 
+                  result.status === 'fulfilled'
+                    ? result.value
                     : { success: false, error: result.reason }
                 )
               )
@@ -214,7 +189,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
               }
 
               let recipientId: string
-              
+
               if (typeof doc.recipient === 'string') {
                 recipientId = doc.recipient
               } else if (doc.recipient?.id) {
@@ -251,7 +226,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
             console.log(`[Notifications Plugin] Push notification results: ${successful} sent, ${failed} failed`)
 
             if (failed > 0) {
-              console.warn('[Notifications Plugin] Some push notifications failed:', 
+              console.warn('[Notifications Plugin] Some push notifications failed:',
                 results.filter(r => !r.success).map(r => r.error)
               )
             }
@@ -265,5 +240,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     }
   }
 
-  return config
+  return options.collectionOverrides?.notifications ?
+    options.collectionOverrides.notifications(config) :
+    config
 }

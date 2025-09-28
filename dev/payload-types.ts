@@ -68,10 +68,6 @@ export interface Config {
   blocks: {};
   collections: {
     users: User;
-    orders: Order;
-    products: Product;
-    posts: Post;
-    media: Media;
     notifications: Notification;
     'push-subscriptions': PushSubscription;
     'payload-locked-documents': PayloadLockedDocument;
@@ -81,10 +77,6 @@ export interface Config {
   collectionsJoins: {};
   collectionsSelect: {
     users: UsersSelect<false> | UsersSelect<true>;
-    orders: OrdersSelect<false> | OrdersSelect<true>;
-    products: ProductsSelect<false> | ProductsSelect<true>;
-    posts: PostsSelect<false> | PostsSelect<true>;
-    media: MediaSelect<false> | MediaSelect<true>;
     notifications: NotificationsSelect<false> | NotificationsSelect<true>;
     'push-subscriptions': PushSubscriptionsSelect<false> | PushSubscriptionsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
@@ -144,79 +136,6 @@ export interface User {
   password?: string | null;
 }
 /**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "orders".
- */
-export interface Order {
-  id: string;
-  orderNumber: string;
-  customer: string | User;
-  status?: ('pending' | 'processing' | 'shipped' | 'delivered' | 'cancelled') | null;
-  total: number;
-  products?: (string | Product)[] | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "products".
- */
-export interface Product {
-  id: string;
-  name: string;
-  description?: string | null;
-  price: number;
-  category?: ('electronics' | 'clothing' | 'books' | 'home-garden') | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "posts".
- */
-export interface Post {
-  id: string;
-  title: string;
-  content?: {
-    root: {
-      type: string;
-      children: {
-        type: string;
-        version: number;
-        [k: string]: unknown;
-      }[];
-      direction: ('ltr' | 'rtl') | null;
-      format: 'left' | 'start' | 'center' | 'right' | 'end' | 'justify' | '';
-      indent: number;
-      version: number;
-    };
-    [k: string]: unknown;
-  } | null;
-  author?: (string | null) | User;
-  publishedAt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media".
- */
-export interface Media {
-  id: string;
-  alt?: string | null;
-  updatedAt: string;
-  createdAt: string;
-  url?: string | null;
-  thumbnailURL?: string | null;
-  filename?: string | null;
-  mimeType?: string | null;
-  filesize?: number | null;
-  width?: number | null;
-  height?: number | null;
-  focalX?: number | null;
-  focalY?: number | null;
-}
-/**
  * Manage user notifications and messaging
  *
  * This interface was referenced by `Config`'s JSON-Schema
@@ -247,9 +166,13 @@ export interface Notification {
     [k: string]: unknown;
   };
   /**
-   * The user who should receive this notification
+   * The user who should receive this notification (optional if using custom recipient fields)
    */
-  recipient: string | User;
+  recipient?: (string | null) | User;
+  /**
+   * The notification channel - only subscribers to this channel will receive the notification
+   */
+  channel?: ('general' | 'orders' | 'products' | 'marketing') | null;
   /**
    * Whether this notification has been read by the recipient
    */
@@ -258,11 +181,6 @@ export interface Notification {
    * When this notification was marked as read
    */
   readAt?: string | null;
-  attachments?: {
-    order?: (string | null) | Order;
-    product?: (string | Product)[] | null;
-    post?: (string | null) | Post;
-  };
   updatedAt: string;
   createdAt: string;
 }
@@ -295,6 +213,10 @@ export interface PushSubscription {
    */
   userAgent?: string | null;
   /**
+   * Channels this subscription is subscribed to - leave empty for all notifications
+   */
+  channels?: ('general' | 'orders' | 'products' | 'marketing')[] | null;
+  /**
    * Whether this subscription is still active
    */
   isActive?: boolean | null;
@@ -311,22 +233,6 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'users';
         value: string | User;
-      } | null)
-    | ({
-        relationTo: 'orders';
-        value: string | Order;
-      } | null)
-    | ({
-        relationTo: 'products';
-        value: string | Product;
-      } | null)
-    | ({
-        relationTo: 'posts';
-        value: string | Post;
-      } | null)
-    | ({
-        relationTo: 'media';
-        value: string | Media;
       } | null)
     | ({
         relationTo: 'notifications';
@@ -398,76 +304,15 @@ export interface UsersSelect<T extends boolean = true> {
 }
 /**
  * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "orders_select".
- */
-export interface OrdersSelect<T extends boolean = true> {
-  orderNumber?: T;
-  customer?: T;
-  status?: T;
-  total?: T;
-  products?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "products_select".
- */
-export interface ProductsSelect<T extends boolean = true> {
-  name?: T;
-  description?: T;
-  price?: T;
-  category?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "posts_select".
- */
-export interface PostsSelect<T extends boolean = true> {
-  title?: T;
-  content?: T;
-  author?: T;
-  publishedAt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
- * via the `definition` "media_select".
- */
-export interface MediaSelect<T extends boolean = true> {
-  alt?: T;
-  updatedAt?: T;
-  createdAt?: T;
-  url?: T;
-  thumbnailURL?: T;
-  filename?: T;
-  mimeType?: T;
-  filesize?: T;
-  width?: T;
-  height?: T;
-  focalX?: T;
-  focalY?: T;
-}
-/**
- * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "notifications_select".
  */
 export interface NotificationsSelect<T extends boolean = true> {
   title?: T;
   message?: T;
   recipient?: T;
+  channel?: T;
   isRead?: T;
   readAt?: T;
-  attachments?:
-    | T
-    | {
-        order?: T;
-        product?: T;
-        post?: T;
-      };
   updatedAt?: T;
   createdAt?: T;
 }
@@ -481,6 +326,7 @@ export interface PushSubscriptionsSelect<T extends boolean = true> {
   p256dh?: T;
   auth?: T;
   userAgent?: T;
+  channels?: T;
   isActive?: T;
   updatedAt?: T;
   createdAt?: T;

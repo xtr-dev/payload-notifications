@@ -11,7 +11,7 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
   }
 
   const webPushConfig = options.webPush
-  
+
   return [
     // Subscribe endpoint
     {
@@ -35,7 +35,6 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           }
 
           const pushManager = new WebPushManager(webPushConfig, req.payload)
-          
           await pushManager.subscribe(
             String(req.user.id),
             subscription,

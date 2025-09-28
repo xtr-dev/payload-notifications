@@ -1,7 +1,7 @@
 /**
  * Client-side Push Notification Manager
  * Handles subscription, permission requests, and communication with the server
- * 
+ *
  * @description This module is designed to run in browser environments only
  */
 
@@ -17,9 +17,9 @@ export interface PushSubscriptionData {
 const isBrowser = typeof window !== 'undefined'
 
 export class ClientPushManager {
-  private vapidPublicKey: string
-  private serviceWorkerPath: string
-  private apiEndpoint: string
+  private readonly vapidPublicKey: string
+  private readonly serviceWorkerPath: string
+  private readonly apiEndpoint: string
 
   constructor(
     vapidPublicKey: string,
@@ -38,7 +38,7 @@ export class ClientPushManager {
    */
   public isSupported(): boolean {
     if (!isBrowser) return false
-    
+
     return (
       'serviceWorker' in navigator &&
       'PushManager' in window &&
@@ -62,8 +62,7 @@ export class ClientPushManager {
       throw new Error('Push notifications are not supported')
     }
 
-    const permission = await Notification.requestPermission()
-    return permission
+    return await Notification.requestPermission()
   }
 
   /**
@@ -87,7 +86,7 @@ export class ClientPushManager {
   /**
    * Subscribe to push notifications
    */
-  public async subscribe(): Promise<PushSubscriptionData> {
+  public async subscribe(channels: string[]): Promise<PushSubscriptionData> {
     // Check support
     if (!this.isSupported()) {
       throw new Error('Push notifications are not supported')
@@ -120,7 +119,7 @@ export class ClientPushManager {
     }
 
     // Send subscription to server
-    await this.sendSubscriptionToServer(subscriptionData)
+    await this.sendSubscriptionToServer(subscriptionData, channels)
 
     return subscriptionData
   }
@@ -149,9 +148,9 @@ export class ClientPushManager {
   /**
    * Get current push subscription
    */
-  public async getSubscription(): Promise<PushSubscriptionData | null> {
+  public async getSubscription(): Promise<Omit<PushSubscriptionData, 'channels'> | null> {
     if (!isBrowser || !('serviceWorker' in navigator)) return null
-    
+
     const registration = await navigator.serviceWorker.getRegistration()
     if (!registration) {
       return null
@@ -183,7 +182,7 @@ export class ClientPushManager {
   /**
    * Send subscription data to server
    */
-  private async sendSubscriptionToServer(subscription: PushSubscriptionData): Promise<void> {
+  private async sendSubscriptionToServer(subscription: PushSubscriptionData, channels: string[]): Promise<void> {
     try {
       const response = await fetch(`${this.apiEndpoint}/subscribe`, {
         method: 'POST',
@@ -192,6 +191,7 @@ export class ClientPushManager {
         },
         body: JSON.stringify({
           subscription,
+          channels,
           userAgent: navigator.userAgent,
         }),
       })

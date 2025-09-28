@@ -1,19 +1,19 @@
 import type { CollectionConfig } from 'payload'
-import type { NotificationAccess, NotificationsPluginOptions } from '../types'
+import type { NotificationsPluginOptions } from '../types'
 
 /**
  * Creates a collection to store web push subscriptions
  * Each user can have multiple subscriptions (different devices/browsers)
  */
-export function createPushSubscriptionsCollection(access: NotificationAccess = {}, options: NotificationsPluginOptions = {}): CollectionConfig {
-  const defaultAccess: NotificationAccess = {
+export function createPushSubscriptionsCollection(options: NotificationsPluginOptions): CollectionConfig {
+  const access: CollectionConfig['access'] = {
     read: ({ req }: { req: any }) => Boolean(req.user),
     create: ({ req }: { req: any }) => Boolean(req.user),
     update: ({ req }: { req: any }) => Boolean(req.user),
     delete: ({ req }: { req: any }) => Boolean(req.user),
   }
 
-  return {
+  const config: CollectionConfig = {
     slug: 'push-subscriptions',
     labels: {
       singular: 'Push Subscription',
@@ -76,16 +76,11 @@ export function createPushSubscriptionsCollection(access: NotificationAccess = {
         name: 'channels',
         type: 'select',
         label: 'Subscribed Channels',
-        options: options.channels && options.channels.length > 0 
-          ? options.channels.map(channel => ({
-              label: channel.name,
-              value: channel.id,
-            }))
-          : [{ label: 'All Notifications', value: 'all' }],
+        options: options.channels.map(channel => ({
+          label: channel.name,
+          value: channel.id,
+        })),
         hasMany: true,
-        defaultValue: options.channels && options.channels.length > 0 
-          ? options.channels.filter(channel => channel.defaultEnabled !== false).map(channel => channel.id)
-          : ['all'],
         admin: {
           description: 'Channels this subscription is subscribed to - leave empty for all notifications',
         },
@@ -101,12 +96,7 @@ export function createPushSubscriptionsCollection(access: NotificationAccess = {
         },
       },
     ],
-    access: {
-      read: access.read || defaultAccess.read!,
-      create: access.create || defaultAccess.create!,
-      update: access.update || defaultAccess.update!,
-      delete: access.delete || defaultAccess.delete!,
-    },
+    access,
     timestamps: true,
     hooks: {
       beforeChange: [
@@ -120,4 +110,7 @@ export function createPushSubscriptionsCollection(access: NotificationAccess = {
       ],
     },
   }
+  return options.collectionOverrides?.pushSubscriptions ?
+    options.collectionOverrides.pushSubscriptions(config) :
+    config
 }

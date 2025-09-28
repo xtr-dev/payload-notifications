@@ -1,174 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-
-// Enhanced demo implementation with real service worker registration
-class DemoClientPushManager {
-  private vapidPublicKey: string
-  private serviceWorkerPath: string
-  private apiEndpoint: string
-
-  constructor(vapidPublicKey: string, options: { serviceWorkerPath?: string; apiEndpoint?: string } = {}) {
-    this.vapidPublicKey = vapidPublicKey
-    this.serviceWorkerPath = options.serviceWorkerPath || '/sw.js'
-    this.apiEndpoint = options.apiEndpoint || '/api/push-notifications'
-  }
-
-  public isSupported(): boolean {
-    if (typeof window === 'undefined') return false
-    return (
-      'serviceWorker' in navigator &&
-      'PushManager' in window &&
-      'Notification' in window
-    )
-  }
-
-  public getPermissionStatus(): NotificationPermission {
-    if (typeof window === 'undefined' || typeof Notification === 'undefined') return 'default'
-    return Notification.permission
-  }
-
-  public async requestPermission(): Promise<NotificationPermission> {
-    if (!this.isSupported()) {
-      throw new Error('Push notifications are not supported')
-    }
-    return await Notification.requestPermission()
-  }
-
-  public async registerServiceWorker(): Promise<ServiceWorkerRegistration> {
-    if (!this.isSupported()) {
-      throw new Error('Service workers are not supported')
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.register(this.serviceWorkerPath)
-      console.log('Service worker registered:', registration)
-      
-      // Wait for service worker to be ready
-      await navigator.serviceWorker.ready
-      
-      return registration
-    } catch (error) {
-      console.error('Service worker registration failed:', error)
-      throw error
-    }
-  }
-
-  public async subscribe(): Promise<any> {
-    const permission = await this.requestPermission()
-    if (permission !== 'granted') {
-      throw new Error('Notification permission not granted')
-    }
-
-    const registration = await this.registerServiceWorker()
-    
-    // For demo purposes, we'll simulate subscription without actual VAPID keys
-    // In production, you would use real VAPID keys here
-    try {
-      const subscription = await registration.pushManager.subscribe({
-        userVisibleOnly: true,
-        applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey),
-      })
-
-      console.log('Push subscription:', subscription)
-      return {
-        endpoint: subscription.endpoint,
-        keys: {
-          p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
-          auth: this.arrayBufferToBase64(subscription.getKey('auth')!),
-        },
-      }
-    } catch (error) {
-      console.warn('Real push subscription failed, simulating for demo:', error)
-      // Return simulated subscription for demo
-      return {
-        endpoint: 'demo-endpoint',
-        keys: { p256dh: 'demo-key', auth: 'demo-auth' }
-      }
-    }
-  }
-
-  public async isSubscribed(): Promise<boolean> {
-    if (!this.isSupported()) return false
-    
-    try {
-      const registration = await navigator.serviceWorker.getRegistration()
-      if (!registration) return false
-      
-      const subscription = await registration.pushManager.getSubscription()
-      return subscription !== null
-    } catch {
-      return false
-    }
-  }
-
-  public async unsubscribe(): Promise<void> {
-    try {
-      const registration = await navigator.serviceWorker.getRegistration()
-      if (!registration) return
-
-      const subscription = await registration.pushManager.getSubscription()
-      if (subscription) {
-        await subscription.unsubscribe()
-      }
-    } catch (error) {
-      console.error('Unsubscribe failed:', error)
-    }
-  }
-
-  public async sendTestNotification(): Promise<void> {
-    // Send a test notification using the service worker
-    const registration = await navigator.serviceWorker.getRegistration()
-    if (!registration) {
-      throw new Error('Service worker not registered')
-    }
-
-    // Simulate receiving a push message
-    if (registration.active) {
-      registration.active.postMessage({
-        type: 'TEST_NOTIFICATION',
-        payload: {
-          title: 'Test Notification',
-          body: 'This is a test notification from the demo!',
-          icon: '/icons/notification-icon.png',
-          badge: '/icons/notification-badge.png',
-          data: {
-            url: '/admin/collections/notifications',
-            notificationId: 'demo-' + Date.now()
-          }
-        }
-      })
-    }
-
-    // Also show a direct notification for testing
-    if (Notification.permission === 'granted') {
-      new Notification('Direct Test Notification', {
-        body: 'This notification was sent directly from JavaScript',
-        icon: '/icons/notification-icon.png',
-        tag: 'direct-test'
-      })
-    }
-  }
-
-  private urlBase64ToUint8Array(base64String: string): Uint8Array {
-    const padding = '='.repeat((4 - (base64String.length % 4)) % 4)
-    const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/')
-
-    const rawData = window.atob(base64)
-    const outputArray = new Uint8Array(rawData.length)
-
-    for (let i = 0; i < rawData.length; ++i) {
-      outputArray[i] = rawData.charCodeAt(i)
-    }
-    return outputArray
-  }
-
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer)
-    const binary = Array.from(bytes).map(b => String.fromCharCode(b)).join('')
-    return window.btoa(binary)
-  }
-}
+import {ClientPushManager} from "../../../../src/client/push-manager"
 
 // Available channels (should match the configuration in payload.config.ts)
 const AVAILABLE_CHANNELS = [
@@ -182,7 +15,7 @@ export default function DemoPage() {
   const [isSupported, setIsSupported] = useState(false)
   const [isSubscribed, setIsSubscribed] = useState(false)
   const [permission, setPermission] = useState<NotificationPermission>('default')
-  const [pushManager, setPushManager] = useState<DemoClientPushManager | null>(null)
+  const [pushManager, setPushManager] = useState<ClientPushManager | null>(null)
   const [loading, setLoading] = useState(false)
   const [selectedChannels, setSelectedChannels] = useState<string[]>(
     AVAILABLE_CHANNELS.filter(channel => channel.defaultEnabled).map(channel => channel.id)
@@ -191,7 +24,7 @@ export default function DemoPage() {
   useEffect(() => {
     // Use the real VAPID public key from environment
     const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || 'BNde-uFUkQB5BweFbOt_40Tn3xZahMop2JKT8kqRn4UqMMinieguHmVCTxwN_qfM-jZ0YFpVpIk3CWehlXcTl8A'
-    const manager = new DemoClientPushManager(vapidPublicKey)
+    const manager = new ClientPushManager(vapidPublicKey)
     setPushManager(manager)
     setIsSupported(manager.isSupported())
     setPermission(manager.getPermissionStatus())
@@ -203,11 +36,11 @@ export default function DemoPage() {
 
   const handleSubscribe = async () => {
     if (!pushManager) return
-    
+
     setLoading(true)
     try {
-      const subscription = await pushManager.subscribe()
-      
+      const subscription = await pushManager.subscribe(selectedChannels)
+
       // Save the subscription to Payload's database using the plugin's API endpoint
       const response = await fetch('/api/push-notifications/subscribe', {
         method: 'POST',
@@ -221,7 +54,6 @@ export default function DemoPage() {
           channels: selectedChannels,
         }),
       })
-
       if (response.ok) {
         setIsSubscribed(true)
         setPermission('granted')
@@ -239,11 +71,11 @@ export default function DemoPage() {
 
   const handleUnsubscribe = async () => {
     if (!pushManager) return
-    
+
     setLoading(true)
     try {
       await pushManager.unsubscribe()
-      
+
       // Remove the subscription from Payload's database
       const response = await fetch('/api/push-notifications/unsubscribe', {
         method: 'POST',
@@ -271,27 +103,13 @@ export default function DemoPage() {
     setLoading(false)
   }
 
-  const handleTestNotification = async () => {
-    if (!pushManager) return
-    
-    setLoading(true)
-    try {
-      await pushManager.sendTestNotification()
-      alert('Test notification sent! Check your browser notifications.')
-    } catch (error) {
-      console.error('Failed to send test notification:', error)
-      alert('Failed to send test notification: ' + (error as Error).message)
-    }
-    setLoading(false)
-  }
-
   return (
     <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
       <h1>Payload Notifications Plugin Demo</h1>
-      
+
       <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '8px' }}>
         <h2>🔔 Web Push Notifications</h2>
-        
+
         {!isSupported ? (
           <div style={{ color: 'red' }}>
             ❌ Push notifications are not supported in this browser
@@ -300,7 +118,7 @@ export default function DemoPage() {
           <div>
             <p><strong>Status:</strong> {isSubscribed ? '✅ Subscribed' : '❌ Not subscribed'}</p>
             <p><strong>Permission:</strong> {permission}</p>
-            
+
             {!isSubscribed && (
               <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
                 <h3 style={{ marginBottom: '0.5rem', fontSize: '1rem' }}>📢 Select Notification Channels</h3>
@@ -309,11 +127,11 @@ export default function DemoPage() {
                 </p>
                 <div style={{ display: 'grid', gap: '0.75rem' }}>
                   {AVAILABLE_CHANNELS.map(channel => (
-                    <label 
-                      key={channel.id} 
-                      style={{ 
-                        display: 'flex', 
-                        alignItems: 'flex-start', 
+                    <label
+                      key={channel.id}
+                      style={{
+                        display: 'flex',
+                        alignItems: 'flex-start',
                         gap: '0.5rem',
                         padding: '0.75rem',
                         border: '1px solid #e0e0e0',
@@ -347,10 +165,10 @@ export default function DemoPage() {
                 </div>
               </div>
             )}
-            
+
             <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
               {!isSubscribed ? (
-                <button 
+                <button
                   onClick={handleSubscribe}
                   disabled={loading || selectedChannels.length === 0}
                   style={{
@@ -367,7 +185,7 @@ export default function DemoPage() {
                 </button>
               ) : (
                 <>
-                  <button 
+                  <button
                     onClick={handleUnsubscribe}
                     disabled={loading}
                     style={{
@@ -381,21 +199,6 @@ export default function DemoPage() {
                     }}
                   >
                     {loading ? 'Unsubscribing...' : 'Disable Notifications'}
-                  </button>
-                  <button 
-                    onClick={handleTestNotification}
-                    disabled={loading}
-                    style={{
-                      padding: '0.75rem 1.5rem',
-                      backgroundColor: '#28a745',
-                      color: 'white',
-                      border: 'none',
-                      borderRadius: '4px',
-                      cursor: loading ? 'not-allowed' : 'pointer',
-                      opacity: loading ? 0.6 : 1
-                    }}
-                  >
-                    {loading ? 'Sending...' : 'Send Test Notification'}
                   </button>
                 </>
               )}
