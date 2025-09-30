@@ -66,8 +66,8 @@ export interface WebPushConfig {
 export interface NotificationsPluginOptions {
   /** Collection configuration */
   collectionOverrides?: {
-    notifications: (config: CollectionConfig) => CollectionConfig
-    pushSubscriptions: (config: CollectionConfig) => CollectionConfig
+    notifications?: (config: CollectionConfig) => CollectionConfig
+    pushSubscriptions?: (config: CollectionConfig) => CollectionConfig
   }
   /** Web push notification configuration */
   webPush?: WebPushConfig
