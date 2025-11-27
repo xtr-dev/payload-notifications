@@ -208,6 +208,195 @@ notificationsPlugin({
 })
 ```
 
+## Email Notifications
+
+You can add email functionality to notifications using the `collectionOverrides` option. This allows you to add custom hooks to the notifications collection without modifying the plugin code.
+
+### Using Collection Overrides
+
+The key is to preserve existing hooks (like web push) while adding your own:
+
+```typescript
+import { notificationsPlugin } from '@xtr-dev/payload-notifications'
+
+notificationsPlugin({
+  channels: [{ id: 'default', name: 'Default' }],
+  collectionOverrides: {
+    notifications: (config) => ({
+      ...config,
+      hooks: {
+        ...config.hooks, // Preserve existing hooks (web push, etc.)
+        afterChange: [
+          ...(config.hooks?.afterChange || []), // Preserve existing afterChange hooks
+          // Add your custom email hook
+          async ({ doc, operation, req }) => {
+            if (operation === 'create') {
+              // Your email logic here
+            }
+          }
+        ]
+      }
+    })
+  }
+})
+```
+
+### Example: Custom Email Service
+
+```typescript
+import { notificationsPlugin } from '@xtr-dev/payload-notifications'
+import { sendEmail } from './your-email-service'
+import { renderNotificationEmail } from './email-templates'
+
+notificationsPlugin({
+  channels: [{ id: 'default', name: 'Default' }],
+  collectionOverrides: {
+    notifications: (config) => ({
+      ...config,
+      hooks: {
+        ...config.hooks,
+        afterChange: [
+          ...(config.hooks?.afterChange || []),
+          async ({ doc, operation, req }) => {
+            // Send email when notification is created
+            if (operation === 'create') {
+              try {
+                // Get recipient user details
+                let recipientId = doc.recipient
+                if (typeof recipientId === 'object' && recipientId?.id) {
+                  recipientId = recipientId.id
+                }
+
+                if (!recipientId) {
+                  console.log('No recipient for email notification')
+                  return
+                }
+
+                const recipient = await req.payload.findByID({
+                  collection: 'users',
+                  id: recipientId
+                })
+
+                if (!recipient?.email) {
+                  console.log('Recipient has no email address')
+                  return
+                }
+
+                // Send email
+                await sendEmail({
+                  to: recipient.email,
+                  subject: doc.title,
+                  html: renderNotificationEmail(doc)
+                })
+
+                console.log(`Email sent to ${recipient.email}`)
+              } catch (error) {
+                console.error('Failed to send notification email:', error)
+                // Don't throw - we don't want to prevent notification creation
+              }
+            }
+          }
+        ]
+      }
+    })
+  }
+})
+```
+
+### Example: Using @xtr-dev/payload-mailing
+
+```typescript
+import { notificationsPlugin } from '@xtr-dev/payload-notifications'
+import { mailingPlugin } from '@xtr-dev/payload-mailing'
+
+// Configure the mailing plugin
+const mailing = mailingPlugin({
+  // ... your mailing config
+})
+
+// Add email notifications using collection overrides
+const notifications = notificationsPlugin({
+  channels: [{ id: 'default', name: 'Default' }],
+  collectionOverrides: {
+    notifications: (config) => ({
+      ...config,
+      hooks: {
+        ...config.hooks,
+        afterChange: [
+          ...(config.hooks?.afterChange || []),
+          async ({ doc, operation, req }) => {
+            if (operation === 'create') {
+              try {
+                // Get recipient details
+                let recipientId = doc.recipient
+                if (typeof recipientId === 'object' && recipientId?.id) {
+                  recipientId = recipientId.id
+                }
+
+                if (!recipientId) return
+
+                const recipient = await req.payload.findByID({
+                  collection: 'users',
+                  id: recipientId
+                })
+
+                if (!recipient?.email) return
+
+                // Extract plain text from rich text message
+                const extractText = (richText: any[]): string => {
+                  return richText
+                    .map(block =>
+                      block.children
+                        ?.map((child: any) => child.text)
+                        .join('')
+                    )
+                    .join('\n')
+                }
+
+                const messageText = extractText(doc.message)
+
+                // Send email using payload-mailing
+                await req.payload.create({
+                  collection: 'emails',
+                  data: {
+                    to: recipient.email,
+                    subject: doc.title,
+                    text: messageText,
+                    html: `
+                      <h2>${doc.title}</h2>
+                      <div>${messageText}</div>
+                      <p><a href="${process.env.PAYLOAD_PUBLIC_URL}/admin/collections/notifications/${doc.id}">View notification</a></p>
+                    `,
+                  }
+                })
+
+                console.log(`Email queued for ${recipient.email}`)
+              } catch (error) {
+                console.error('Failed to send notification email:', error)
+              }
+            }
+          }
+        ]
+      }
+    })
+  }
+})
+
+export default buildConfig({
+  plugins: [
+    mailing,
+    notifications,
+  ],
+  // ... rest of config
+})
+```
+
+**Important Notes:**
+- Always spread existing hooks (`...config.hooks`) to preserve plugin functionality
+- Use the spread operator for hook arrays (`...(config.hooks?.afterChange || [])`)
+- Don't throw errors in hooks if you want to allow notification creation to succeed even if email fails
+- Email sending happens asynchronously after the notification is created
+
 ## Web Push Notifications
 
 The plugin includes optional web push notifications support for PWA and mobile browser users. For complete setup instructions, configuration options, and usage examples, see [WEBPUSH.md](./WEBPUSH.md).
