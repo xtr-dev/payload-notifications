@@ -17,8 +17,18 @@ export default defineConfig(() => {
       }),
     ],
     test: {
+      env: {
+        // A scratch database for the suite, so tests never read or corrupt
+        // dev.db from a running dev server. int.spec.ts deletes this file
+        // before booting Payload. An explicit DATABASE_URI still wins.
+        DATABASE_URI: process.env.DATABASE_URI || 'file:./dev/int-test.db',
+      },
       environment: 'node',
       hookTimeout: 30_000,
+      // dev/e2e.spec.ts is a Playwright test; vitest's default glob would
+      // collect it and fail on Playwright's test() being called outside its
+      // own runner.
+      include: ['dev/int.spec.ts'],
       testTimeout: 30_000,
     },
   }

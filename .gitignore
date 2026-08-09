@@ -48,3 +48,4 @@ yarn-error.log*
 /blob-report/
 /playwright/.cache/
 /dev.db
+/dev/int-test.db*
