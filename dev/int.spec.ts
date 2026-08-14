@@ -40,7 +40,7 @@ beforeAll(async () => {
   // DATABASE_URI=file:./dev.db may redirect the suite, but must never delete
   // the dev data.
   const uri = process.env.DATABASE_URI
-  if (uri?.startsWith('file:') && basename(uri) === 'int-test.db') {
+  if (uri?.startsWith('file:') && basename(uri.slice('file:'.length)) === 'int-test.db') {
     const dbPath = uri.slice('file:'.length)
     await Promise.all(
       [dbPath, `${dbPath}-wal`, `${dbPath}-shm`].map((p) => rm(p, { force: true })),
