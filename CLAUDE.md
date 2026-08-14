@@ -13,13 +13,22 @@ This is a PayloadCMS plugin that adds a configurable notifications collection. T
 ### Plugin Structure
 ```
 src/
-├── index.ts              # Main plugin export
-├── types.ts              # TypeScript interfaces
+├── index.ts                         # Plugin entry point and Payload config integration
+├── types.ts                         # Public plugin option and web push types
 ├── collections/
-│   └── notifications.ts  # Notifications collection schema
-└── utils/
-    └── buildFields.ts    # Dynamic field builder for relationships
+│   ├── notifications.ts             # Notification schema and automatic push hook
+│   └── push-subscriptions.ts        # Web push subscription schema
+├── endpoints/
+│   └── push-notifications.ts        # Subscribe, unsubscribe, and VAPID key endpoints
+├── utils/
+│   ├── richTextExtractor.ts         # Plain-text extraction and default push content
+│   └── webPush.ts                   # Server-side subscription and delivery manager
+└── exports/
+    ├── client.ts                    # Browser push manager, service worker, and React hook exports
+    └── rsc.ts                       # Server-only web push exports
 ```
+
+`src/index.ts` always adds the notifications collection. When `webPush.enabled` is true, it also adds the push-subscriptions collection and push notification endpoints. The notifications collection can additionally send a push after creation when `webPush.autoPush` is true.
 
 ## Development Guidelines
 
@@ -31,10 +40,9 @@ src/
 
 ### Plugin Configuration
 The plugin accepts a configuration object with:
-- `collections`: Collection settings (slug, labels)
-- `relationships`: Array of relationship configurations
-- `access`: Custom access control functions
-- `fields`: Additional custom fields
+- `channels` (required): An array of `{ id, name, description? }` channel definitions. These become the channel choices on notifications and push subscriptions. Calling `notificationsPlugin()` without options uses the built-in `default` channel.
+- `webPush` (optional): Web push credentials and behavior. It requires `vapidPublicKey`, `vapidPrivateKey`, and `vapidSubject`; it can also set `enabled`, `autoPush`, request `options`, `transformNotification`, and `findSubscriptions`.
+- `collectionOverrides` (optional): Functions that receive and return the generated `notifications` or `pushSubscriptions` `CollectionConfig`, allowing either collection schema to be customized.
 
 ### Relationship System
 - Relationships are stored in an `attachments` group field
