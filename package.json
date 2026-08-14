@@ -31,7 +31,7 @@
     "lint": "eslint",
     "lint:fix": "eslint ./src --fix",
     "prepublishOnly": "pnpm clean && pnpm build",
-    "test": "echo \"No tests configured yet\"",
+    "test": "vitest run src",
     "test:e2e": "playwright test",
     "test:int": "vitest"
   },
