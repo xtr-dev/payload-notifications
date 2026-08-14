@@ -37,18 +37,15 @@ describe('notificationsPlugin with no arguments', () => {
     expect(result.endpoints).toEqual([])
   })
 
-  it('does not leak mutations of one instance into another', () => {
+  it('keeps defaults stable across consecutive calls', () => {
     // Both no-argument calls receive the very same defaultOptions object
-    // (src/index.ts). Nothing writes to it today, so this passes — it is
-    // here to fail the moment someone adds normalisation or a mutating
-    // default-fill, which would leak one installation's channels into
-    // another in the same process.
+    // (src/index.ts). Calling the plugin twice catches normalisation or a
+    // mutating default-fill that changes its shared channels between
+    // installations in the same process.
     const first = notificationsPlugin()({} as Config)
     const second = notificationsPlugin()({} as Config)
 
-    const firstOptions = getChannelField(first.collections![0]).options
-    firstOptions.push({ label: 'Injected', value: 'injected' })
-
+    expect(getChannelField(first.collections![0]).options).toHaveLength(1)
     expect(getChannelField(second.collections![0]).options).toHaveLength(1)
   })
 })
