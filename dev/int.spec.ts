@@ -30,10 +30,14 @@ const callEndpoint = async (path: string, method: string, body?: unknown) => {
 }
 
 beforeAll(async () => {
-  // The sqlite database is scratch state; remove it so every run starts from
-  // an empty schema and the seed, instead of whatever an earlier run left.
+  // The scratch database is deleted so every run starts from an empty schema
+  // and the seed. Gated on the *int-test.db name because DATABASE_URI is the
+  // same variable dev/payload.config.ts reads for the dev server, and it can
+  // arrive from the shell or dev/.env (vitest.config.js loads that file)
+  // pointing at a real database — an inherited DATABASE_URI=file:./dev.db may
+  // redirect the suite, but must never delete the dev data.
   const uri = process.env.DATABASE_URI
-  if (uri?.startsWith('file:')) {
+  if (uri?.startsWith('file:') && uri.endsWith('int-test.db')) {
     const dbPath = uri.slice('file:'.length)
     await Promise.all(
       [dbPath, `${dbPath}-wal`, `${dbPath}-shm`].map((p) => rm(p, { force: true })),
