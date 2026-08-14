@@ -2,6 +2,7 @@ import type { Payload, SanitizedConfig } from 'payload'
 
 import config from '@payload-config'
 import { rm } from 'fs/promises'
+import { basename } from 'path'
 import { createPayloadRequest, getPayload } from 'payload'
 import { afterAll, beforeAll, describe, expect, test } from 'vitest'
 
@@ -31,13 +32,15 @@ const callEndpoint = async (path: string, method: string, body?: unknown) => {
 
 beforeAll(async () => {
   // The scratch database is deleted so every run starts from an empty schema
-  // and the seed. Gated on the *int-test.db name because DATABASE_URI is the
-  // same variable dev/payload.config.ts reads for the dev server, and it can
-  // arrive from the shell or dev/.env (vitest.config.js loads that file)
-  // pointing at a real database — an inherited DATABASE_URI=file:./dev.db may
-  // redirect the suite, but must never delete the dev data.
+  // and the seed. Gated on the exact int-test.db filename (not a suffix
+  // match, which would also wipe e.g. not-int-test.db) because DATABASE_URI
+  // is the same variable dev/payload.config.ts reads for the dev server, and
+  // it can arrive from the shell or dev/.env (vitest.config.js loads that
+  // file) pointing at a real database — an inherited
+  // DATABASE_URI=file:./dev.db may redirect the suite, but must never delete
+  // the dev data.
   const uri = process.env.DATABASE_URI
-  if (uri?.startsWith('file:') && uri.endsWith('int-test.db')) {
+  if (uri?.startsWith('file:') && basename(uri) === 'int-test.db') {
     const dbPath = uri.slice('file:'.length)
     await Promise.all(
       [dbPath, `${dbPath}-wal`, `${dbPath}-shm`].map((p) => rm(p, { force: true })),
