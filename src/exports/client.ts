@@ -136,7 +136,7 @@ try {
  * React hook for managing push notifications
  * Only works if React is available in the environment
  */
-export function usePushNotifications(vapidPublicKey: string) {
+export function usePushNotifications(vapidPublicKey: string, channels: string[]) {
   if (!ReactHooks) {
     throw new Error('React is not available. Make sure React is installed to use this hook.')
   }
@@ -160,7 +160,7 @@ export function usePushNotifications(vapidPublicKey: string) {
 
   const subscribe = async () => {
     if (!pushManager) throw new Error('Push manager not initialized')
-    await pushManager.subscribe()
+    await pushManager.subscribe(channels)
     setIsSubscribed(true)
     setPermission('granted')
   }

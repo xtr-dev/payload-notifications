@@ -235,7 +235,7 @@ function NotificationSettings() {
     permission,
     subscribe,
     unsubscribe
-  } = usePushNotifications(process.env.NEXT_PUBLIC_VAPID_KEY)
+  } = usePushNotifications(process.env.NEXT_PUBLIC_VAPID_KEY, ['default'])
 
   if (!isSupported) return <div>Push notifications not supported</div>
 
@@ -261,8 +261,8 @@ import { ClientPushManager } from '@xtr-dev/payload-notifications/client'
 
 const pushManager = new ClientPushManager('your-vapid-public-key')
 
-// Subscribe to notifications
-await pushManager.subscribe()
+// Subscribe to notifications (channel ids must match the plugin's configured channels)
+await pushManager.subscribe(['default'])
 
 // Check subscription status
 const isSubscribed = await pushManager.isSubscribed()
@@ -273,19 +273,23 @@ await pushManager.unsubscribe()
 
 ## Service Worker Setup
 
-Generate a service worker file automatically:
+The package has no CLI — write the exported service worker template to a file yourself. `serviceWorkerCode` is a string export from `/client` containing the complete template:
 
-```bash
-npx @xtr-dev/payload-notifications generate-sw
+```typescript
+// scripts/generate-sw.ts
+import { writeFileSync } from 'fs'
+import { serviceWorkerCode } from '@xtr-dev/payload-notifications/client'
+
+writeFileSync('public/sw.js', serviceWorkerCode)
 ```
 
-This will create a `/public/sw.js` file with the complete service worker template that handles:
+Run it with `tsx scripts/generate-sw.ts` (or any TypeScript runner) whenever the template changes. The generated file handles:
 
 - Push notification events
 - Notification click handling
 - Service worker lifecycle management
 - Error handling and fallbacks
-- Notification tracking and analytics
+- Notification close tracking (fetches `/api/push-notifications/track`, which this plugin does not implement — remove that handler or implement the route yourself if you don't want a 404 on every dismissal)
 
 **Important Notes:**
 - The service worker file **must** be placed at `/public/sw.js` in Next.js projects
@@ -324,9 +328,8 @@ The plugin automatically creates these endpoints when web push is enabled:
 - `POST /api/push-notifications/subscribe` - Subscribe to push notifications ⚠️ **Requires authentication**
 - `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
 - `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
-- `POST /api/push-notifications/send` - Send notification to user ⚠️ **Requires authentication**
-- `POST /api/push-notifications/test` - Send test notification ⚠️ **Admin only**
-- `POST /api/push-notifications/track` - Track notification events
+
+There are no `/send`, `/test`, or `/track` routes. Sending is done server-side by calling `WebPushManager` directly (see above), either from the `autoPush` hook or your own code — there is no HTTP endpoint for it.
 
 ## Integration with Notifications Collection
 

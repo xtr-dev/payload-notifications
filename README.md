@@ -27,7 +27,7 @@ npm install @xtr-dev/payload-notifications
 Add the plugin to your Payload config:
 
 ```typescript
-import { buildConfig } from 'payload/config'
+import { buildConfig } from 'payload'
 import { notificationsPlugin } from '@xtr-dev/payload-notifications'
 
 export default buildConfig({
