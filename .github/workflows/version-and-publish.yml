@@ -26,11 +26,14 @@ jobs:
       - name: Install dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Run tests
-        run: pnpm test
+      - name: Run unit tests
+        run: pnpm test:unit
 
       - name: Run build
         run: pnpm build
+
+      - name: Verify published exports resolve under native ESM
+        run: pnpm test:published-exports
 
       - name: Get package version
         id: package-version
