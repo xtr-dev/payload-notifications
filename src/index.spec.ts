@@ -45,7 +45,11 @@ describe('notificationsPlugin with no arguments', () => {
     const first = notificationsPlugin()({} as Config)
     const second = notificationsPlugin()({} as Config)
 
-    expect(getChannelField(first.collections![0]).options).toHaveLength(1)
-    expect(getChannelField(second.collections![0]).options).toHaveLength(1)
+    expect(getChannelField(first.collections![0]).options).toEqual([
+      { label: 'Default', value: 'default' },
+    ])
+    expect(getChannelField(second.collections![0]).options).toEqual([
+      { label: 'Default', value: 'default' },
+    ])
   })
 })
