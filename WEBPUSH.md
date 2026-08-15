@@ -96,23 +96,30 @@ notificationsPlugin({
 
 ## Anonymous Notifications Support
 
-For scenarios where you need to send notifications to anonymous users or have custom recipient logic (e.g., notifications based on email addresses, phone numbers, or custom identifiers), you can use the `findSubscriptions` hook combined with custom fields.
+For scenarios where you need to send notifications to anonymous users or have custom recipient logic (e.g., notifications based on email addresses, phone numbers, or custom identifiers), you can use the `findSubscriptions` hook combined with a custom field added via `collectionOverrides`.
 
 ### Example: Email-based notifications
 
 ```typescript
 notificationsPlugin({
-  // Add custom email field to notifications collection
-  fields: [
-    {
-      name: 'recipientEmail',
-      type: 'email',
-      label: 'Recipient Email',
-      admin: {
-        description: 'Email address of the notification recipient',
-      },
-    }
-  ],
+  channels: [{ id: 'default', name: 'Default' }],
+  // Add custom email field to the notifications collection
+  collectionOverrides: {
+    notifications: (config) => ({
+      ...config,
+      fields: [
+        ...config.fields,
+        {
+          name: 'recipientEmail',
+          type: 'email',
+          label: 'Recipient Email',
+          admin: {
+            description: 'Email address of the notification recipient',
+          },
+        }
+      ]
+    })
+  },
   webPush: {
     enabled: true,
     autoPush: true,
@@ -152,16 +159,23 @@ notificationsPlugin({
 
 ```typescript
 notificationsPlugin({
-  fields: [
-    {
-      name: 'recipientPhone',
-      type: 'text',
-      label: 'Recipient Phone',
-      admin: {
-        description: 'Phone number of the notification recipient',
-      },
-    }
-  ],
+  channels: [{ id: 'default', name: 'Default' }],
+  collectionOverrides: {
+    notifications: (config) => ({
+      ...config,
+      fields: [
+        ...config.fields,
+        {
+          name: 'recipientPhone',
+          type: 'text',
+          label: 'Recipient Phone',
+          admin: {
+            description: 'Phone number of the notification recipient',
+          },
+        }
+      ]
+    })
+  },
   webPush: {
     enabled: true,
     autoPush: true,
@@ -199,7 +213,7 @@ notificationsPlugin({
 
 **Key Points:**
 - The default `recipient` field remains a user relationship for standard notifications
-- Add custom recipient fields via the `fields` option for your specific use case
+- Add custom recipient fields via `collectionOverrides.notifications` for your specific use case
 - Use the `findSubscriptions` hook to implement custom subscription lookup logic
 - The hook receives the full notification document and payload instance
 - Return an array of push subscription documents that should receive the notification
@@ -326,7 +340,7 @@ const notification = await payload.create({
     title: 'New Message',
     message: [{ children: [{ text: 'You have a new message!' }] }],
     recipient: userId,
-    attachments: { message: messageId }
+    channel: 'default'
   }
 })
 
