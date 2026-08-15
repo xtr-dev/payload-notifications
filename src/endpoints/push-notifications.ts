@@ -1,5 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { WebPushManager } from '../utils/webPush'
+import { WebPushManager } from '../utils/webPush.js'
 import type { NotificationsPluginOptions } from '../types'
 
 /**
