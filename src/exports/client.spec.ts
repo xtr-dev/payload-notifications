@@ -1,7 +1,23 @@
 import { Script } from 'node:vm'
+import { createElement } from 'react'
+import { renderToString } from 'react-dom/server'
 import { describe, expect, test } from 'vitest'
 
-import { serviceWorkerCode } from './client'
+import {
+  serviceWorkerCode,
+  usePushNotifications,
+} from '@xtr-dev/payload-notifications/client'
+
+describe('@xtr-dev/payload-notifications/client', () => {
+  test('provides a working React hook through the public client entry point', () => {
+    function Consumer() {
+      const state = usePushNotifications('public-key', ['updates'])
+      return createElement('span', null, String(state.isSupported))
+    }
+
+    expect(renderToString(createElement(Consumer))).toContain('false')
+  })
+})
 
 describe('serviceWorkerCode', () => {
   test('parses as classic (non-module) script', () => {

@@ -3,8 +3,12 @@
  * Import from '@xtr-dev/payload-notifications/client'
  */
 
-export { ClientPushManager } from '../client/push-manager'
-export type { PushSubscriptionData } from '../client/push-manager'
+import { useEffect, useState } from 'react'
+
+import { ClientPushManager } from '../client/push-manager.js'
+
+export { ClientPushManager }
+export type { PushSubscriptionData } from '../client/push-manager.js'
 
 // Service worker utilities
 export const serviceWorkerCode = `
@@ -97,40 +101,16 @@ self.addEventListener('notificationclose', (event) => {
 })
 `
 
-// React types (conditional)
-interface ReactHooks {
-  useState: any
-  useEffect: any
-}
-
-// Try to import React hooks
-let ReactHooks: ReactHooks | null = null
-try {
-  const React = require('react')
-  ReactHooks = {
-    useState: React.useState,
-    useEffect: React.useEffect
-  }
-} catch {
-  // React not available
-}
-
 /**
  * React hook for managing push notifications
- * Only works if React is available in the environment
  */
 export function usePushNotifications(vapidPublicKey: string, channels: string[]) {
-  if (!ReactHooks) {
-    throw new Error('React is not available. Make sure React is installed to use this hook.')
-  }
+  const [isSupported, setIsSupported] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [permission, setPermission] = useState<NotificationPermission>('default')
+  const [pushManager, setPushManager] = useState<ClientPushManager | null>(null)
 
-  const [isSupported, setIsSupported] = ReactHooks.useState(false)
-  const [isSubscribed, setIsSubscribed] = ReactHooks.useState(false)
-  const [permission, setPermission] = ReactHooks.useState('default')
-  const [pushManager, setPushManager] = ReactHooks.useState(null)
-
-  ReactHooks.useEffect(() => {
-    const { ClientPushManager } = require('../client/push-manager')
+  useEffect(() => {
     const manager = new ClientPushManager(vapidPublicKey)
     setPushManager(manager)
     setIsSupported(manager.isSupported())
