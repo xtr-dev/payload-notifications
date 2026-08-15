@@ -37,17 +37,19 @@ describe('notificationsPlugin with no arguments', () => {
     expect(result.endpoints).toEqual([])
   })
 
-  it('keeps defaults stable across consecutive calls', () => {
+  it('does not leak mutations of one instance into another', () => {
     // Both no-argument calls receive the very same defaultOptions object
-    // (src/index.ts). Calling the plugin twice catches normalisation or a
-    // mutating default-fill that changes its shared channels between
-    // installations in the same process.
+    // (src/index.ts). The channel field is built via options.channels.map
+    // (src/collections/notifications.ts), a fresh array each call today -
+    // pushing onto one instance's options must not affect the other's,
+    // which would happen if a future change aliased that array instead of
+    // mapping it.
     const first = notificationsPlugin()({} as Config)
     const second = notificationsPlugin()({} as Config)
 
-    expect(getChannelField(first.collections![0]).options).toEqual([
-      { label: 'Default', value: 'default' },
-    ])
+    const firstOptions = getChannelField(first.collections![0]).options
+    firstOptions.push({ label: 'Injected', value: 'injected' })
+
     expect(getChannelField(second.collections![0]).options).toEqual([
       { label: 'Default', value: 'default' },
     ])
