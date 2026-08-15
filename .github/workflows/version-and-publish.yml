@@ -35,6 +35,9 @@ jobs:
       - name: Verify published exports resolve under native ESM
         run: pnpm test:published-exports
 
+      - name: Verify published declarations resolve under NodeNext
+        run: pnpm test:declarations
+
       - name: Get package version
         id: package-version
         run: echo "version=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
