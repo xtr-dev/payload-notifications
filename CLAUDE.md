@@ -16,10 +16,16 @@ This is a PayloadCMS plugin that adds a configurable notifications collection. T
 src/
 ├── index.ts              # Main plugin export
 ├── types.ts              # TypeScript interfaces
+├── client/               # Browser push subscription helpers
+│   ├── push-manager.ts
+│   └── service-worker.ts
 ├── collections/
 │   ├── notifications.ts       # Notifications collection schema
 │   └── push-subscriptions.ts  # Web push subscription schema
 ├── endpoints/            # Web push endpoints
+├── exports/              # Client and React Server Component entry points
+│   ├── client.ts
+│   └── rsc.ts
 └── utils/                # Web push and rich-text helpers
 ```
 
