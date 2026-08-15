@@ -43,7 +43,8 @@
     "prepublishOnly": "pnpm clean && pnpm build",
     "test": "echo \"No tests configured yet\"",
     "test:e2e": "playwright test",
-    "test:int": "vitest"
+    "test:int": "vitest",
+    "test:unit": "vitest run src"
   },
   "keywords": [
     "payloadcms",
