@@ -33,7 +33,9 @@ import { notificationsPlugin } from '@xtr-dev/payload-notifications'
 export default buildConfig({
   plugins: [
     notificationsPlugin({
-      // Basic configuration
+      channels: [
+        { id: 'default', name: 'Default' }
+      ]
     })
   ],
   // ... rest of your config
