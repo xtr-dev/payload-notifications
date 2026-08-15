@@ -59,6 +59,10 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
       method: 'post',
       handler: async (req: PayloadRequest) => {
         try {
+          if (!req.user) {
+            return Response.json({ error: 'Authentication required' }, { status: 401 })
+          }
+
           const body = await req.json?.()
           if (!body || !(typeof body === 'object' && 'endpoint' in body)) {
             return Response.json({ error: 'Invalid request body' }, { status: 400 })
@@ -71,7 +75,11 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           }
 
           const pushManager = new WebPushManager(webPushConfig, req.payload)
-          await pushManager.unsubscribe(endpoint)
+          const unsubscribed = await pushManager.unsubscribe(endpoint, req.user.id)
+
+          if (!unsubscribed) {
+            return Response.json({ error: 'Subscription not found' }, { status: 404 })
+          }
 
           return Response.json({ success: true })
         } catch (error: any) {

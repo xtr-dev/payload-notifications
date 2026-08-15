@@ -237,25 +237,34 @@ export class WebPushManager {
   }
 
   /**
-   * Unsubscribe a user from push notifications
+   * Deactivate a push subscription, scoped to the owning user so one user
+   * cannot deactivate another user's subscription by supplying their endpoint.
+   * Returns whether a matching subscription owned by the user was found.
    */
-  public async unsubscribe(endpoint: string): Promise<void> {
+  public async unsubscribe(endpoint: string, userId: string | number): Promise<boolean> {
     try {
       const subscription = await this.payload.find({
         collection: 'push-subscriptions',
         where: {
-          endpoint: { equals: endpoint },
+          and: [
+            { endpoint: { equals: endpoint } },
+            { user: { equals: userId } },
+          ],
         },
         limit: 1,
       })
 
-      if (subscription.docs.length > 0) {
-        await this.payload.update({
-          collection: 'push-subscriptions',
-          id: subscription.docs[0].id,
-          data: { isActive: false },
-        })
+      if (subscription.docs.length === 0) {
+        return false
       }
+
+      await this.payload.update({
+        collection: 'push-subscriptions',
+        id: subscription.docs[0].id,
+        data: { isActive: false },
+      })
+
+      return true
     } catch (error) {
       console.error('Failed to unsubscribe:', error)
       throw error
