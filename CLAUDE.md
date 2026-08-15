@@ -4,7 +4,7 @@
 
 This is a PayloadCMS plugin that adds a configurable notifications collection. The plugin allows developers to:
 - Create notifications with titles and rich text messages
-- Configure relationship attachments to any collection
+- Organize notifications into configurable channels
 - Track read/unread status
 - Target specific recipients
 
@@ -45,14 +45,14 @@ The plugin accepts a configuration object with:
 - `collectionOverrides` (optional): Functions that receive and return the generated `notifications` or `pushSubscriptions` `CollectionConfig`, allowing either collection schema to be customized.
 
 ### Relationship System
-- Relationships are stored in an `attachments` group field
-- Each relationship is dynamically generated based on config
-- Supports single and multiple selections (`hasMany`)
+- The notifications collection has one fixed relationship field, `recipient`, targeting the `users` collection
+- `recipient` is optional (`required: false`) — leave it unset when delivery is driven by a custom `findSubscriptions` hook instead
+- There is no dynamic or per-collection relationship builder; the field set is fixed and customized only through `collectionOverrides`
 
 ### Collection Schema
 The notifications collection includes:
-- Required fields: title, message, recipient
-- Optional fields: isRead, readAt, attachments
+- Required fields: title, message
+- Optional fields: recipient, channel, isRead, readAt
 - Automatic timestamps: createdAt, updatedAt
 
 ## Testing Strategy
@@ -80,6 +80,6 @@ export const notificationsPlugin = (options: NotificationsPluginOptions = {}) =>
 ## Key Implementation Notes
 1. Use PayloadCMS field types and validation
 2. Leverage PayloadCMS access control patterns
-3. Generate relationship fields dynamically based on config
+3. Let consumers customize the generated collection schemas via `collectionOverrides`
 4. Provide sensible defaults for all configuration options
 5. Ensure plugin doesn't conflict with existing collections
