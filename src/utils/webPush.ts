@@ -201,17 +201,21 @@ export class WebPushManager {
         limit: 1,
       })
 
+      // userId and channels are cast to `any` below because a consumer's generated
+      // Payload types narrow `user` and `channels` to that consumer's own relationship
+      // and select-option unions (e.g. specific channel ids), which this plugin cannot
+      // know statically - its own public contract stays string|number and string[].
       if (existing.docs.length > 0) {
         // Update existing subscription
         await this.payload.update({
           collection: 'push-subscriptions',
           id: existing.docs[0].id,
           data: {
-            user: userId,
+            user: userId as any,
             p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
             userAgent,
-            channels,
+            channels: channels as any,
             isActive: true,
           },
         })
@@ -220,12 +224,12 @@ export class WebPushManager {
         await this.payload.create({
           collection: 'push-subscriptions',
           data: {
-            user: userId,
+            user: userId as any,
             endpoint: subscription.endpoint,
             p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
             userAgent,
-            channels,
+            channels: channels as any,
             isActive: true,
           },
         })
