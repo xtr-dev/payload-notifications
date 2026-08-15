@@ -21,7 +21,9 @@ const defaultOptions: NotificationsPluginOptions = {
  * - Title and rich text message content
  * - Recipient targeting
  * - Read/unread status tracking
- * - Configurable relationship attachments to any collection
+ * - Channel-based targeting via the required `channels` option
+ * - Optional web push delivery via `webPush`
+ * - Collection hook overrides via `collectionOverrides`
  *
  * @param options Plugin configuration options
  * @returns Configured PayloadCMS plugin

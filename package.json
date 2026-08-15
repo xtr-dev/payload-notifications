@@ -1,7 +1,7 @@
 {
   "name": "@xtr-dev/payload-notifications",
   "version": "0.0.4",
-  "description": "A PayloadCMS plugin that adds a configurable notifications collection for sending messages with titles, content, and attachable relationship items",
+  "description": "A PayloadCMS plugin that adds a configurable notifications collection for sending channel-targeted messages with titles and rich text content",
   "license": "MIT",
   "type": "module",
   "exports": {
@@ -40,7 +40,8 @@
     "plugin",
     "notifications",
     "cms",
-    "relationships"
+    "channels",
+    "web-push"
   ],
   "author": "XTR Dev",
   "repository": {
