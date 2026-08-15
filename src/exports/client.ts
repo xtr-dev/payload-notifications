@@ -13,21 +13,6 @@ export const serviceWorkerCode = `
  * This code should be served as /sw.js or similar
  */
 
-declare const self: ServiceWorkerGlobalScope
-
-interface NotificationPayload {
-  title: string
-  body: string
-  icon?: string
-  badge?: string
-  image?: string
-  data?: any
-  actions?: Array<{ action: string; title: string; icon?: string }>
-  tag?: string
-  requireInteraction?: boolean
-  timestamp: number
-}
-
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker')
   self.skipWaiting()
@@ -42,7 +27,7 @@ self.addEventListener('push', (event) => {
   if (!event.data) return
 
   try {
-    const payload: NotificationPayload = event.data.json()
+    const payload = event.data.json()
     const { title, body, ...options } = payload
 
     event.waitUntil(
@@ -110,8 +95,6 @@ self.addEventListener('notificationclose', (event) => {
     }).catch(console.error)
   }
 })
-
-export {}
 `
 
 // React types (conditional)
