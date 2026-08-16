@@ -102,5 +102,37 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
         }
       },
     },
+
+    // Track notification events (e.g. notificationclose from the generated service worker)
+    {
+      path: '/push-notifications/track',
+      method: 'post',
+      handler: async (req: PayloadRequest) => {
+        try {
+          const body = await req.json?.()
+          if (!body || !(typeof body === 'object' && 'action' in body)) {
+            return Response.json({ error: 'Invalid request body' }, { status: 400 })
+          }
+
+          const { action, notificationId, timestamp } = body as {
+            action: string
+            notificationId?: string | number
+            timestamp?: number
+          }
+
+          console.log(
+            `[Notifications Plugin] Push notification event: ${action}${notificationId ? ` (notification ${notificationId})` : ''}${timestamp ? ` at ${timestamp}` : ''}`
+          )
+
+          return Response.json({ success: true })
+        } catch (error: any) {
+          console.error('Push tracking error:', error)
+          return Response.json(
+            { error: 'Failed to track push notification event' },
+            { status: 500 }
+          )
+        }
+      },
+    },
   ]
 }
