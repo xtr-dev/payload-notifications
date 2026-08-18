@@ -310,9 +310,9 @@ The plugin automatically creates these endpoints when web push is enabled:
 - `POST /api/push-notifications/subscribe` - Subscribe to push notifications ⚠️ **Requires authentication**
 - `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
 - `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
-- `POST /api/push-notifications/send` - Send notification to user ⚠️ **Requires authentication**
-- `POST /api/push-notifications/test` - Send test notification ⚠️ **Admin only**
-- `POST /api/push-notifications/track` - Track notification events
+- `POST /api/push-notifications/track` - Track notification events (called by the generated service worker)
+
+There is no HTTP endpoint for sending a push notification. Sends happen server-side, either automatically via `autoPush` on the notifications collection or by calling `WebPushManager.sendToUser()` directly, as shown above.
 
 ## Integration with Notifications Collection
 

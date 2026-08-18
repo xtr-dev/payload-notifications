@@ -242,8 +242,7 @@ export default function DemoPage() {
           <li><code>POST /api/push-notifications/subscribe</code> - Subscribe to push notifications</li>
           <li><code>POST /api/push-notifications/unsubscribe</code> - Unsubscribe from push notifications</li>
           <li><code>GET /api/push-notifications/vapid-public-key</code> - Get VAPID public key</li>
-          <li><code>POST /api/push-notifications/send</code> - Send notification to user</li>
-          <li><code>POST /api/push-notifications/test</code> - Send test notification (admin only)</li>
+          <li><code>POST /api/push-notifications/track</code> - Track notification events (called by the generated service worker)</li>
         </ul>
       </div>
 

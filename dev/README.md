@@ -89,9 +89,7 @@ The plugin automatically creates these endpoints:
 - `POST /api/push-notifications/subscribe` - Subscribe to push notifications
 - `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
 - `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
-- `POST /api/push-notifications/send` - Send notification to user
-- `POST /api/push-notifications/test` - Send test notification (admin only)
-- `POST /api/push-notifications/track` - Track notification events
+- `POST /api/push-notifications/track` - Track notification events (called by the generated service worker)
 
 ### Service Worker Setup
 
