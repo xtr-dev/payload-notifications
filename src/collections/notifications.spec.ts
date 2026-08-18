@@ -37,7 +37,7 @@ describe('afterChange push hook does not block notification creation on push fai
     setVapidDetails.mockReset()
   })
 
-  it('resolves (does not reject the create) when the default recipient send rejects with a non-subscription error', async () => {
+  it('leaves the subscription active when a send rejects with a non-subscription error (WebPushManager.sendToRecipient isolates the failure per-subscription, so this never reaches the hook\'s own try/catch)', async () => {
     sendNotification.mockRejectedValue(new Error('push service unreachable'))
     const payload = {
       find: vi.fn().mockResolvedValue({ docs: [{ id: 'sub-1', auth: 'a1', endpoint: 'https://push.example.test/1', p256dh: 'p1' }] }),
@@ -54,7 +54,7 @@ describe('afterChange push hook does not block notification creation on push fai
     expect(payload.update).not.toHaveBeenCalled()
   })
 
-  it('resolves (does not reject the create) when a custom findSubscriptions hook rejects', async () => {
+  it('resolves (does not reject the create) when a custom findSubscriptions hook rejects, exercising the hook\'s own try/catch', async () => {
     const findSubscriptions = vi.fn().mockRejectedValue(new Error('lookup backend down'))
     const payload = { find: vi.fn(), update: vi.fn() }
     const hook = afterChangeHook({
