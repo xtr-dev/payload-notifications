@@ -6,11 +6,21 @@ import type { NotificationsPluginOptions } from '../types'
  * Each user can have multiple subscriptions (different devices/browsers)
  */
 export function createPushSubscriptionsCollection(options: NotificationsPluginOptions): CollectionConfig {
+  // Scopes read/update/delete to the subscription's own user, so one authenticated
+  // user can't read or modify another user's endpoint/keys via the REST/GraphQL API
+  // directly (bypassing the ownership check in the /unsubscribe endpoint). Admins
+  // keep full access, matching the convention in the notifications collection.
+  const ownRecordOrAdmin = ({ req }: { req: any }) => {
+    if (!req.user) return false
+    if (req.user.role === 'admin') return true
+    return { user: { equals: req.user.id } }
+  }
+
   const access: CollectionConfig['access'] = {
-    read: ({ req }: { req: any }) => Boolean(req.user),
+    read: ownRecordOrAdmin,
     create: ({ req }: { req: any }) => Boolean(req.user),
-    update: ({ req }: { req: any }) => Boolean(req.user),
-    delete: ({ req }: { req: any }) => Boolean(req.user),
+    update: ownRecordOrAdmin,
+    delete: ownRecordOrAdmin,
   }
 
   const config: CollectionConfig = {
