@@ -239,12 +239,15 @@ export class WebPushManager {
   /**
    * Unsubscribe a user from push notifications
    */
-  public async unsubscribe(endpoint: string): Promise<void> {
+  public async unsubscribe(userId: string | number, endpoint: string): Promise<void> {
     try {
       const subscription = await this.payload.find({
         collection: 'push-subscriptions',
         where: {
-          endpoint: { equals: endpoint },
+          and: [
+            { endpoint: { equals: endpoint } },
+            { user: { equals: userId } },
+          ],
         },
         limit: 1,
       })

@@ -4,7 +4,8 @@ import config from '@payload-config'
 import { rm } from 'fs/promises'
 import { basename } from 'path'
 import { createPayloadRequest, getPayload } from 'payload'
-import { afterAll, beforeAll, describe, expect, test } from 'vitest'
+import webpush from 'web-push'
+import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 
 // The channel ids configured in dev/payload.config.ts — the plugin must turn
 // exactly these into the select options on both generated collections.
@@ -15,7 +16,12 @@ let resolvedConfig: SanitizedConfig
 
 // Invokes a plugin endpoint's handler the way Payload's router would,
 // so the tests exercise the real handler including auth and body parsing.
-const callEndpoint = async (path: string, method: string, body?: unknown) => {
+const callEndpoint = async (
+  path: string,
+  method: string,
+  body?: unknown,
+  user?: { id: string | number },
+) => {
   const endpoint = resolvedConfig.endpoints.find(
     (e) => e.path === path && e.method === method,
   )
@@ -27,6 +33,9 @@ const callEndpoint = async (path: string, method: string, body?: unknown) => {
     method: method.toUpperCase(),
   })
   const payloadRequest = await createPayloadRequest({ config, request })
+  if (user) {
+    payloadRequest.user = user as typeof payloadRequest.user
+  }
   return endpoint!.handler(payloadRequest)
 }
 
@@ -80,46 +89,65 @@ describe('notifications collection', () => {
   })
 
   test('a notification is stored even though web push cannot deliver', async () => {
-    // autoPush is on in the dev config with placeholder VAPID keys and no
-    // subscriptions, so the afterChange push attempt goes nowhere — the
-    // notification itself must still be created and readable.
     const { docs: users } = await payload.find({ collection: 'users', limit: 1 })
     expect(users.length).toBeGreaterThan(0)
 
-    const created = await payload.create({
-      collection: 'notifications',
+    await payload.create({
+      collection: 'push-subscriptions',
       data: {
-        channel: 'general',
-        message: {
-          root: {
-            type: 'root',
-            children: [
-              {
-                type: 'paragraph',
-                children: [{ type: 'text', text: 'Created by the integration test.' }],
-                direction: 'ltr',
-                format: '',
-                indent: 0,
-                version: 1,
-              },
-            ],
-            direction: 'ltr',
-            format: '',
-            indent: 0,
-            version: 1,
-          },
-        },
-        recipient: users[0].id,
-        title: 'Integration test notification',
+        auth: 'auth-key',
+        channels: ['general'],
+        endpoint: 'https://push.example/failed-delivery',
+        isActive: true,
+        p256dh: 'p256dh-key',
+        user: users[0].id,
       },
     })
+    const sendNotification = vi
+      .spyOn(webpush, 'sendNotification')
+      .mockRejectedValueOnce(new Error('push service unavailable'))
+    const setVapidDetails = vi.spyOn(webpush, 'setVapidDetails').mockImplementation(() => undefined)
 
-    const fetched = await payload.findByID({
-      id: created.id,
-      collection: 'notifications',
-    })
-    expect(fetched.title).toBe('Integration test notification')
-    expect(fetched.isRead).toBe(false)
+    try {
+      const created = await payload.create({
+        collection: 'notifications',
+        data: {
+          channel: 'general',
+          message: {
+            root: {
+              type: 'root',
+              children: [
+                {
+                  type: 'paragraph',
+                  children: [{ type: 'text', text: 'Created by the integration test.' }],
+                  direction: 'ltr',
+                  format: '',
+                  indent: 0,
+                  version: 1,
+                },
+              ],
+              direction: 'ltr',
+              format: '',
+              indent: 0,
+              version: 1,
+            },
+          },
+          recipient: users[0].id,
+          title: 'Integration test notification',
+        },
+      })
+
+      expect(sendNotification).toHaveBeenCalledOnce()
+      const fetched = await payload.findByID({
+        id: created.id,
+        collection: 'notifications',
+      })
+      expect(fetched.title).toBe('Integration test notification')
+      expect(fetched.isRead).toBe(false)
+    } finally {
+      sendNotification.mockRestore()
+      setVapidDetails.mockRestore()
+    }
   })
 })
 
@@ -161,8 +189,62 @@ describe('push subscriptions (webPush.enabled)', () => {
     expect(response.status).toBe(401)
   })
 
+  test('unsubscribe rejects an unauthenticated request', async () => {
+    const response = await callEndpoint('/push-notifications/unsubscribe', 'post', {
+      endpoint: 'https://push.example/abc',
+    })
+    expect(response.status).toBe(401)
+  })
+
+  test('unsubscribe only deactivates the requesters subscription', async () => {
+    const { docs: users } = await payload.find({ collection: 'users', limit: 2 })
+    expect(users).toHaveLength(2)
+    const [owner, otherUser] = users
+    const endpoint = 'https://push.example/owned-by-first-user'
+
+    const subscription = await payload.create({
+      collection: 'push-subscriptions',
+      data: {
+        auth: 'auth-key',
+        endpoint,
+        isActive: true,
+        p256dh: 'p256dh-key',
+        user: owner.id,
+      },
+    })
+
+    const response = await callEndpoint(
+      '/push-notifications/unsubscribe',
+      'post',
+      { endpoint },
+      otherUser,
+    )
+    expect(response.status).toBe(200)
+
+    const unchanged = await payload.findByID({
+      collection: 'push-subscriptions',
+      id: subscription.id,
+    })
+    expect(unchanged.isActive).toBe(true)
+
+    const ownerResponse = await callEndpoint(
+      '/push-notifications/unsubscribe',
+      'post',
+      { endpoint },
+      owner,
+    )
+    expect(ownerResponse.status).toBe(200)
+
+    const deactivated = await payload.findByID({
+      collection: 'push-subscriptions',
+      id: subscription.id,
+    })
+    expect(deactivated.isActive).toBe(false)
+  })
+
   test('unsubscribe rejects a body without an endpoint', async () => {
-    const response = await callEndpoint('/push-notifications/unsubscribe', 'post', {})
+    const { docs: users } = await payload.find({ collection: 'users', limit: 1 })
+    const response = await callEndpoint('/push-notifications/unsubscribe', 'post', {}, users[0])
     expect(response.status).toBe(400)
   })
 })

@@ -10,7 +10,7 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
-      pull-requests: read
+      pull-requests: write
       issues: read
       id-token: write
 
@@ -18,7 +18,7 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v6
         with:
-          fetch-depth: 1
+          fetch-depth: 0
 
       - name: Run Claude Code Review
         id: claude-review
@@ -27,9 +27,13 @@ jobs:
           claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
 
           # Run the official code-review skill and post findings on the PR.
+          # The PR number is passed explicitly, so review scope is always the
+          # triggering PR rather than anything the skill might infer.
           plugin_marketplaces: 'https://github.com/anthropics/claude-code.git'
           plugins: 'code-review@claude-code-plugins'
           prompt: '/code-review:code-review --comment ${{ github.repository }}/pull/${{ github.event.pull_request.number }}'
 
-          # Required so the action starts the MCP server that posts inline comments.
-          claude_args: '--allowedTools "mcp__github_inline_comment__create_inline_comment"'
+          # --model pins the current Sonnet alias so this job does not depend on
+          # a retired dated model snapshot. --allowedTools is required so the
+          # action starts the MCP server that posts inline comments.
+          claude_args: '--model sonnet --allowedTools "mcp__github_inline_comment__create_inline_comment"'
