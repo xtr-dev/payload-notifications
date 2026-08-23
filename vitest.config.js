@@ -27,8 +27,10 @@ export default defineConfig(() => {
       hookTimeout: 30_000,
       // dev/e2e.spec.ts is a Playwright test; vitest's default glob would
       // collect it and fail on Playwright's test() being called outside its
-      // own runner.
-      include: ['dev/int.spec.ts'],
+      // own runner. src/**/*.spec.ts are the unit tests selected by
+      // `pnpm test:unit` (`vitest run src`); without them in include the
+      // positional filter finds no files and the script exits 1.
+      include: ['dev/int.spec.ts', 'src/**/*.spec.ts'],
       testTimeout: 30_000,
     },
   }

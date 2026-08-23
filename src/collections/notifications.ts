@@ -1,7 +1,7 @@
 import type { CollectionConfig, Field } from 'payload'
-import type { NotificationsPluginOptions } from '../types'
-import { WebPushManager } from '../utils/webPush'
-import { defaultNotificationTransformer } from '../utils/richTextExtractor'
+import type { NotificationsPluginOptions } from '../types.js'
+import { WebPushManager } from '../utils/webPush.js'
+import { defaultNotificationTransformer } from '../utils/richTextExtractor.js'
 
 /**
  * Creates the notifications collection configuration
