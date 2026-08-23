@@ -1,6 +1,6 @@
 import webpush from 'web-push'
 import type { Payload } from 'payload'
-import type { WebPushConfig, PushSubscription } from '../types'
+import type { WebPushConfig, PushSubscription } from '../types.js'
 
 /**
  * Web Push utility class for handling push notifications

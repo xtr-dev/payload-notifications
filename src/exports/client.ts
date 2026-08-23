@@ -3,8 +3,12 @@
  * Import from '@xtr-dev/payload-notifications/client'
  */
 
-export { ClientPushManager } from '../client/push-manager'
-export type { PushSubscriptionData } from '../client/push-manager'
+import { useEffect, useState } from 'react'
+
+import { ClientPushManager } from '../client/push-manager.js'
+
+export { ClientPushManager }
+export type { PushSubscriptionData } from '../client/push-manager.js'
 
 // Service worker utilities
 export const serviceWorkerCode = `
@@ -12,21 +16,6 @@ export const serviceWorkerCode = `
  * Service Worker for Web Push Notifications
  * This code should be served as /sw.js or similar
  */
-
-declare const self: ServiceWorkerGlobalScope
-
-interface NotificationPayload {
-  title: string
-  body: string
-  icon?: string
-  badge?: string
-  image?: string
-  data?: any
-  actions?: Array<{ action: string; title: string; icon?: string }>
-  tag?: string
-  requireInteraction?: boolean
-  timestamp: number
-}
 
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker')
@@ -42,7 +31,7 @@ self.addEventListener('push', (event) => {
   if (!event.data) return
 
   try {
-    const payload: NotificationPayload = event.data.json()
+    const payload = event.data.json()
     const { title, body, ...options } = payload
 
     event.waitUntil(
@@ -110,44 +99,18 @@ self.addEventListener('notificationclose', (event) => {
     }).catch(console.error)
   }
 })
-
-export {}
 `
-
-// React types (conditional)
-interface ReactHooks {
-  useState: any
-  useEffect: any
-}
-
-// Try to import React hooks
-let ReactHooks: ReactHooks | null = null
-try {
-  const React = require('react')
-  ReactHooks = {
-    useState: React.useState,
-    useEffect: React.useEffect
-  }
-} catch {
-  // React not available
-}
 
 /**
  * React hook for managing push notifications
- * Only works if React is available in the environment
  */
-export function usePushNotifications(vapidPublicKey: string) {
-  if (!ReactHooks) {
-    throw new Error('React is not available. Make sure React is installed to use this hook.')
-  }
+export function usePushNotifications(vapidPublicKey: string, channels: string[]) {
+  const [isSupported, setIsSupported] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [permission, setPermission] = useState<NotificationPermission>('default')
+  const [pushManager, setPushManager] = useState<ClientPushManager | null>(null)
 
-  const [isSupported, setIsSupported] = ReactHooks.useState(false)
-  const [isSubscribed, setIsSubscribed] = ReactHooks.useState(false)
-  const [permission, setPermission] = ReactHooks.useState('default')
-  const [pushManager, setPushManager] = ReactHooks.useState(null)
-
-  ReactHooks.useEffect(() => {
-    const { ClientPushManager } = require('../client/push-manager')
+  useEffect(() => {
     const manager = new ClientPushManager(vapidPublicKey)
     setPushManager(manager)
     setIsSupported(manager.isSupported())
@@ -160,7 +123,7 @@ export function usePushNotifications(vapidPublicKey: string) {
 
   const subscribe = async () => {
     if (!pushManager) throw new Error('Push manager not initialized')
-    await pushManager.subscribe()
+    await pushManager.subscribe(channels)
     setIsSubscribed(true)
     setPermission('granted')
   }

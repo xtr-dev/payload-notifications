@@ -1,6 +1,6 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { WebPushManager } from '../utils/webPush'
-import type { NotificationsPluginOptions } from '../types'
+import { WebPushManager } from '../utils/webPush.js'
+import type { NotificationsPluginOptions } from '../types.js'
 
 /**
  * Create push notification API endpoints

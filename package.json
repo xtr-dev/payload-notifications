@@ -9,6 +9,16 @@
       "import": "./src/index.ts",
       "types": "./src/index.ts",
       "default": "./src/index.ts"
+    },
+    "./client": {
+      "import": "./src/exports/client.ts",
+      "types": "./src/exports/client.ts",
+      "default": "./src/exports/client.ts"
+    },
+    "./rsc": {
+      "import": "./src/exports/rsc.ts",
+      "types": "./src/exports/rsc.ts",
+      "default": "./src/exports/rsc.ts"
     }
   },
   "main": "./src/index.ts",
@@ -33,7 +43,10 @@
     "prepublishOnly": "pnpm clean && pnpm build",
     "test": "pnpm test:int",
     "test:e2e": "playwright test",
-    "test:int": "vitest run"
+    "test:published-exports": "node --input-type=module -e \"await Promise.all(['./dist/index.js', './dist/exports/client.js', './dist/exports/rsc.js'].map((entry) => import(entry)))\"",
+    "test:declarations": "node scripts/verify-nodenext-consumer.mjs",
+    "test:int": "vitest run",
+    "test:unit": "vitest run src"
   },
   "keywords": [
     "payloadcms",
@@ -88,7 +101,8 @@
     "vitest": "^3.1.2"
   },
   "peerDependencies": {
-    "payload": "^3.37.0"
+    "payload": "^3.37.0",
+    "react": "^18.2.0 || ^19.0.0"
   },
   "engines": {
     "node": "^18.20.2 || >=20.9.0",
@@ -100,6 +114,16 @@
         "import": "./dist/index.js",
         "types": "./dist/index.d.ts",
         "default": "./dist/index.js"
+      },
+      "./client": {
+        "import": "./dist/exports/client.js",
+        "types": "./dist/exports/client.d.ts",
+        "default": "./dist/exports/client.js"
+      },
+      "./rsc": {
+        "import": "./dist/exports/rsc.js",
+        "types": "./dist/exports/rsc.d.ts",
+        "default": "./dist/exports/rsc.js"
       }
     },
     "main": "./dist/index.js",
