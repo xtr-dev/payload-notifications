@@ -17,15 +17,25 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     throw new Error('No channels defined for notifications plugin')
   }
 
-  // Default access control - authenticated users can read, recipients can update their own notifications, admins can update/delete any
+  // Default access control - authenticated users can read, recipients can update their own notifications,
+  // and broadcasts without a recipient can be marked as read by any authenticated user.
   const recipientOrAdmin = ({ req }: { req: any }) => {
     if (req.user?.role === 'admin') return true
 
     return req.user
       ? {
-          recipient: {
-            equals: req.user.id,
-          },
+          or: [
+            {
+              recipient: {
+                equals: req.user.id,
+              },
+            },
+            {
+              recipient: {
+                exists: false,
+              },
+            },
+          ],
         }
       : false
   }
