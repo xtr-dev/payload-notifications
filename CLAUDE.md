@@ -64,7 +64,7 @@ The notifications collection includes:
 ## Build Process
 - Use TypeScript compiler for builds
 - Generate declaration files (.d.ts)
-- Bundle for both CommonJS and ES modules
+- Bundle as ES modules only (`.swcrc` sets `module.type: "es6"`)
 - Include source maps for debugging
 
 ## Plugin Registration
