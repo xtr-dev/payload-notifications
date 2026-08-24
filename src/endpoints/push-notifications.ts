@@ -1,6 +1,6 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { WebPushManager } from '../utils/webPush'
-import type { NotificationsPluginOptions } from '../types'
+import { WebPushManager } from '../utils/webPush.js'
+import type { NotificationsPluginOptions } from '../types.js'
 
 /**
  * Create push notification API endpoints
@@ -75,11 +75,7 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           }
 
           const pushManager = new WebPushManager(webPushConfig, req.payload)
-          const unsubscribed = await pushManager.unsubscribe(endpoint, req.user.id)
-
-          if (!unsubscribed) {
-            return Response.json({ error: 'Subscription not found' }, { status: 404 })
-          }
+          await pushManager.unsubscribe(req.user.id, endpoint)
 
           return Response.json({ success: true })
         } catch (error: any) {

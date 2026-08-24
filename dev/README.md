@@ -38,23 +38,15 @@ The dev environment showcases a complete implementation of the notifications plu
 ### Plugin Configuration
 ```typescript
 notificationsPlugin({
-  collections: {
-    slug: 'notifications',
-    labels: { singular: 'Notification', plural: 'Notifications' }
-  },
-  relationships: [
-    { name: 'order', relationTo: 'orders', label: 'Related Order' },
-    { name: 'product', relationTo: 'products', label: 'Related Product', hasMany: true },
-    { name: 'post', relationTo: 'posts', label: 'Related Post' }
+  channels: [
+    { id: 'general', name: 'General Notifications', description: 'General updates and announcements' },
+    { id: 'orders', name: 'Order Updates', description: 'Order status changes and shipping notifications' },
+    { id: 'products', name: 'Product Updates', description: 'New products, restocks, and price changes' },
+    { id: 'marketing', name: 'Marketing & Promotions', description: 'Special offers, sales, and promotional content' }
   ],
-  access: {
-    read: ({ req }) => Boolean(req.user),
-    create: ({ req }) => Boolean(req.user),
-    update: ({ req }) => Boolean(req.user),
-    delete: ({ req }) => Boolean(req.user?.role === 'admin'),
-  },
   webPush: {
     enabled: true,
+    autoPush: true,
     vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
     vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
     vapidSubject: 'mailto:test@example.com'
@@ -120,7 +112,7 @@ The service worker handles:
    - Check browser dev tools console for service worker logs
 4. **Admin panel testing:**
    - Go to `/admin` and create notifications
-   - Attach relationships to orders, products, or posts
+   - Assign a channel (General, Orders, Products, or Marketing) to route it
    - Real push notifications require proper VAPID keys
 
 ### Service Worker Features
@@ -150,9 +142,9 @@ The development environment is automatically seeded with:
 - Order #ORD-002 (Pending - JavaScript Guide)
 
 ### Notifications
-- Welcome notification with blog post attachment
-- Order shipped notification with order and product attachments
-- Product recommendation notification (marked as read)
+- Welcome notification on the General channel
+- Orders channel demo notification
+- Product recommendation notification on the Products channel (marked as read)
 
 ## 🛠️ Development
 
@@ -192,7 +184,7 @@ dev/
 ## 🔍 Testing the Plugin
 
 1. **Admin Panel Testing:**
-   - Create notifications with different relationship attachments
+   - Create notifications across different channels
    - Test read/unread functionality
    - View push subscriptions
    - Test user role permissions

@@ -1,6 +1,6 @@
 import webpush from 'web-push'
 import type { Payload } from 'payload'
-import type { WebPushConfig, PushSubscription } from '../types'
+import type { WebPushConfig, PushSubscription } from '../types.js'
 
 /**
  * Web Push utility class for handling push notifications
@@ -239,9 +239,8 @@ export class WebPushManager {
   /**
    * Deactivate a push subscription, scoped to the owning user so one user
    * cannot deactivate another user's subscription by supplying their endpoint.
-   * Returns whether a matching subscription owned by the user was found.
    */
-  public async unsubscribe(endpoint: string, userId: string | number): Promise<boolean> {
+  public async unsubscribe(userId: string | number, endpoint: string): Promise<void> {
     try {
       const subscription = await this.payload.find({
         collection: 'push-subscriptions',
@@ -255,7 +254,7 @@ export class WebPushManager {
       })
 
       if (subscription.docs.length === 0) {
-        return false
+        return
       }
 
       await this.payload.update({
@@ -263,8 +262,6 @@ export class WebPushManager {
         id: subscription.docs[0].id,
         data: { isActive: false },
       })
-
-      return true
     } catch (error) {
       console.error('Failed to unsubscribe:', error)
       throw error

@@ -57,7 +57,8 @@ describe('push notification unsubscribe endpoint', () => {
       limit: 1,
     })
     expect(payload.update).not.toHaveBeenCalled()
-    expect(response.status).toBe(404)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ success: true })
   })
 
   test('deactivates a subscription that belongs to the authenticated user', async () => {
