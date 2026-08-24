@@ -3,6 +3,17 @@ import type { Payload } from 'payload'
 import type { WebPushConfig, PushSubscription } from '../types.js'
 
 /**
+ * Thrown when subscribe is asked to write an endpoint owned by another user.
+ * The HTTP handler maps this to 403; other errors stay 500.
+ */
+export class PushSubscriptionOwnershipError extends Error {
+  constructor() {
+    super('Push subscription belongs to another user')
+    this.name = 'PushSubscriptionOwnershipError'
+  }
+}
+
+/**
  * Web Push utility class for handling push notifications
  */
 export class WebPushManager {
@@ -183,7 +194,11 @@ export class WebPushManager {
   }
 
   /**
-   * Subscribe a user to push notifications
+   * Subscribe a user to push notifications.
+   * The endpoint lookup is global because `endpoint` is unique, but the
+   * matching row is only writable by its owner: a caller who knows someone
+   * else's endpoint cannot overwrite that row's keys or `user`. These Local
+   * API calls have no request context, so collection access does not apply.
    */
   public async subscribe(
     userId: string | number,
@@ -192,17 +207,26 @@ export class WebPushManager {
     channels?: string[]
   ): Promise<void> {
     try {
-      // Check if subscription already exists
       const existing = await this.payload.find({
         collection: 'push-subscriptions',
         where: {
           endpoint: { equals: subscription.endpoint },
         },
         limit: 1,
+        depth: 0,
       })
 
       if (existing.docs.length > 0) {
-        // Update existing subscription
+        const existingUser = existing.docs[0].user
+        const ownerId =
+          existingUser != null && typeof existingUser === 'object' && 'id' in existingUser
+            ? (existingUser as { id: string | number }).id
+            : existingUser
+
+        if (String(ownerId) !== String(userId)) {
+          throw new PushSubscriptionOwnershipError()
+        }
+
         await this.payload.update({
           collection: 'push-subscriptions',
           id: existing.docs[0].id,
@@ -216,7 +240,6 @@ export class WebPushManager {
           },
         })
       } else {
-        // Create new subscription
         await this.payload.create({
           collection: 'push-subscriptions',
           data: {
@@ -231,6 +254,9 @@ export class WebPushManager {
         })
       }
     } catch (error) {
+      if (error instanceof PushSubscriptionOwnershipError) {
+        throw error
+      }
       console.error('Failed to save push subscription:', error)
       throw error
     }

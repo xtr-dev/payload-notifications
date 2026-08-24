@@ -247,4 +247,47 @@ describe('push subscriptions (webPush.enabled)', () => {
     const response = await callEndpoint('/push-notifications/unsubscribe', 'post', {}, users[0])
     expect(response.status).toBe(400)
   })
+
+  test('subscribe does not let one user take over another users endpoint', async () => {
+    const { docs: users } = await payload.find({ collection: 'users', limit: 2 })
+    expect(users).toHaveLength(2)
+    const [owner, otherUser] = users
+    const endpoint = 'https://push.example/owned-subscribe-endpoint'
+
+    const subscription = await payload.create({
+      collection: 'push-subscriptions',
+      data: {
+        auth: 'owner-auth',
+        endpoint,
+        isActive: true,
+        p256dh: 'owner-p256dh',
+        user: owner.id,
+      },
+    })
+
+    const response = await callEndpoint(
+      '/push-notifications/subscribe',
+      'post',
+      {
+        channels: ['general'],
+        subscription: {
+          endpoint,
+          keys: { auth: 'attacker-auth', p256dh: 'attacker-p256dh' },
+        },
+        userAgent: 'vitest',
+      },
+      otherUser,
+    )
+    expect(response.status).toBe(403)
+
+    const unchanged = await payload.findByID({
+      collection: 'push-subscriptions',
+      id: subscription.id,
+      depth: 0,
+    })
+    expect(String(unchanged.user)).toBe(String(owner.id))
+    expect(unchanged.auth).toBe('owner-auth')
+    expect(unchanged.p256dh).toBe('owner-p256dh')
+    expect(unchanged.isActive).toBe(true)
+  })
 })
