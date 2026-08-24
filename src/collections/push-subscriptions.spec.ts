@@ -13,6 +13,13 @@ function collectionAccess() {
   }
 }
 
+function beforeChangeHook() {
+  const collection = createPushSubscriptionsCollection(pluginOptions)
+  const hook = collection.hooks?.beforeChange?.[0]
+  if (!hook) throw new Error('beforeChange hook was not registered')
+  return hook
+}
+
 describe('push-subscriptions collection access', () => {
   test.each(['read', 'update', 'delete'] as const)(
     '%s refuses an unauthenticated request',
@@ -42,9 +49,51 @@ describe('push-subscriptions collection access', () => {
     }
   )
 
-  test('create only requires authentication, since beforeChange assigns the requesting user', () => {
+  test('create only requires authentication; ownership is enforced in beforeChange', () => {
     const access = collectionAccess()
     expect(access.create({ req: { user: null } })).toBe(false)
     expect(access.create({ req: { user: { id: 'requesting-user' } } })).toBe(true)
+  })
+})
+
+describe('push-subscriptions beforeChange ownership', () => {
+  test('assigns the requesting user when the client omits user', async () => {
+    const data = await beforeChangeHook()({
+      req: { user: { id: 'requesting-user' } },
+      data: {},
+    } as any)
+
+    expect(data.user).toBe('requesting-user')
+  })
+
+  test.each(['create', 'update'] as const)(
+    '%s overwrites a non-admin attempt to set user to someone else',
+    async (operation) => {
+      const data = await beforeChangeHook()({
+        req: { user: { id: 'requesting-user' } },
+        data: { user: 'someone-else' },
+        operation,
+      } as any)
+
+      expect(data.user).toBe('requesting-user')
+    }
+  )
+
+  test('lets an admin assign the subscription to another user', async () => {
+    const data = await beforeChangeHook()({
+      req: { user: { id: 'admin-user', role: 'admin' } },
+      data: { user: 'someone-else' },
+    } as any)
+
+    expect(data.user).toBe('someone-else')
+  })
+
+  test('defaults an admin create with no user to the admin themselves', async () => {
+    const data = await beforeChangeHook()({
+      req: { user: { id: 'admin-user', role: 'admin' } },
+      data: {},
+    } as any)
+
+    expect(data.user).toBe('admin-user')
   })
 })

@@ -111,8 +111,16 @@ export function createPushSubscriptionsCollection(options: NotificationsPluginOp
     hooks: {
       beforeChange: [
         ({ req, data }: { req: any; data: any }) => {
-          // For user-based subscriptions, default to current user
-          if (req.user && !data.user) {
+          if (!req.user) return data
+          // Non-admins always own the row they write. Create and update both
+          // run this hook, so a logged-in user cannot attach their endpoint/keys
+          // to another user's id (sendToRecipient would then push the victim's
+          // notifications to the attacker). Admins can still assign a
+          // subscription to any user, and still default to themselves when the
+          // field is omitted.
+          if (req.user.role !== 'admin') {
+            data.user = req.user.id
+          } else if (!data.user) {
             data.user = req.user.id
           }
           return data
