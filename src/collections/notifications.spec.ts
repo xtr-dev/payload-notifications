@@ -12,7 +12,7 @@ describe('notifications collection update access', () => {
     expect(update({ req: { user: { id: 'user-1' } } })).toEqual({
       or: [
         { recipient: { equals: 'user-1' } },
-        { recipient: { exists: false } },
+        { recipient: { equals: null } },
       ],
     })
   })

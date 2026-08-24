@@ -32,7 +32,10 @@ export function createNotificationsCollection(options: NotificationsPluginOption
             },
             {
               recipient: {
-                exists: false,
+                // equals: null matches omitted and explicit-null recipients
+                // on every adapter; exists: false misses Mongo documents
+                // stored as null after the field is cleared in the admin UI.
+                equals: null,
               },
             },
           ],
