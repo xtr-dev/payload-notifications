@@ -17,8 +17,12 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     throw new Error('No channels defined for notifications plugin')
   }
 
-  // Default access control - authenticated users can read, recipients can update their own notifications,
-  // and broadcasts without a recipient can be marked as read by any authenticated user.
+  // Collection update matches the recipient, an admin, or a row with no recipient.
+  // Empty recipient is how broadcasts are stored, and also how custom-recipient
+  // rows look when the user relationship is left unused. Field access then
+  // limits non-admins to isRead/readAt so a matching row cannot be rewritten.
+  const adminOnlyFieldUpdate = ({ req }: { req: any }) => Boolean(req.user?.role === 'admin')
+
   const recipientOrAdmin = ({ req }: { req: any }) => {
     if (req.user?.role === 'admin') return true
 
@@ -32,10 +36,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
             },
             {
               recipient: {
-                // equals: null matches omitted and explicit-null recipients
-                // on every adapter; exists: false misses Mongo documents
-                // stored as null after the field is cleared in the admin UI.
-                equals: null,
+                exists: false,
               },
             },
           ],
@@ -56,6 +57,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       name: 'title',
       type: 'text',
       label: 'Title',
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
       required: true,
       admin: {
         description: 'The notification title that will be displayed to users',
@@ -65,6 +69,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       name: 'message',
       type: 'richText',
       label: 'Message',
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
       required: true,
       admin: {
         description: 'The notification message content',
@@ -75,6 +82,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       type: 'relationship',
       relationTo: 'users',
       label: 'Recipient',
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
       required: false,
       admin: {
         description: 'The user who should receive this notification (optional if using custom recipient fields)',
@@ -88,6 +98,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
         label: channel.name,
         value: channel.id,
       })),
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
       required: false,
       admin: {
         description: 'The notification channel - only subscribers to this channel will receive the notification',
