@@ -1,13 +1,19 @@
 #!/usr/bin/env node
 // Type-checks the PACKED package's emitted .d.ts files as a NodeNext
-// consumer would resolve them. `test:published-exports` only proves the
-// emitted .js resolves under native ESM (`node --input-type=module`), which
-// never reads .d.ts at all; tsc under the repo's own moduleResolution:"node"
-// (tsconfig.json, used by `build:types`) accepts extensionless specifiers
-// that a NodeNext/node16 consumer's resolver rejects. This script closes
-// that gap by installing the tarball `pnpm pack` would publish into a
-// scratch project and compiling a consumer of every documented subpath
-// under module/moduleResolution: "nodenext".
+// consumer would resolve them, and then actually imports every documented
+// subpath at runtime through that same packed tarball. `test:published-exports`
+// only proves the emitted .js resolves via relative filesystem paths inside
+// dist/ — it never goes through node_modules or the package's `exports` map,
+// so a subpath missing from `exports` (or pointing at the wrong built file)
+// passes it silently. tsc under the repo's own moduleResolution:"node"
+// (tsconfig.json, used by `build:types`) also accepts extensionless
+// specifiers that a NodeNext/node16 consumer's resolver rejects, and never
+// executes anything either. This script closes both gaps by installing the
+// tarball `pnpm pack` would publish into a scratch project, compiling a
+// consumer of every documented subpath under module/moduleResolution:
+// "nodenext", and then running `await import()` on each subpath by its
+// package specifier so a broken or unpublished `exports` entry fails here
+// the same way it would for a real consumer.
 import { execFileSync } from 'node:child_process'
 import { cpSync, mkdirSync, mkdtempSync, readdirSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -55,12 +61,42 @@ try {
   // and then references `webpush.RequestOptions`/`webpush.SendResult` as
   // types — that only resolves under esModuleInterop's synthetic default,
   // which requires the module to have no real default export, same as here.
+  // `index.js` (CJS, real `module.exports`) is the runtime counterpart: `.`
+  // pulls in `notifications.js` -> `webPush.js` -> a genuine, non-type-only
+  // `import webpush from 'web-push'`, so the bare `await import('.')` in
+  // import-check.mjs below needs something real to resolve, not just types.
   writeStub(join(consumer, 'node_modules', 'web-push'), {
-    'package.json': JSON.stringify({ name: 'web-push', version: '0.0.0', types: 'index.d.ts' }),
+    'package.json': JSON.stringify({ name: 'web-push', version: '0.0.0', main: 'index.js', types: 'index.d.ts' }),
     'index.d.ts': [
       'export interface RequestOptions { [key: string]: any }',
       'export interface SendResult { [key: string]: any }',
       'export function sendNotification(...args: any[]): Promise<SendResult>',
+      '',
+    ].join('\n'),
+    'index.js': [
+      'function setVapidDetails() {}',
+      'async function sendNotification() {',
+      "  return { statusCode: 201, headers: {}, body: '' }",
+      '}',
+      'module.exports = { setVapidDetails, sendNotification }',
+      '',
+    ].join('\n'),
+  })
+
+  // `./client`'s compiled output imports `{ useEffect, useState }` from
+  // `react` at module scope (for the `usePushNotifications` hook) — a real,
+  // loadable module the same way `web-push` above is, so the runtime import
+  // check doesn't fail on a peer dependency this scratch consumer never
+  // installed. The public .d.ts graph never names a React type, so no
+  // corresponding type stub is needed for the tsc check.
+  writeStub(join(consumer, 'node_modules', 'react'), {
+    'package.json': JSON.stringify({ name: 'react', version: '0.0.0', main: 'index.js' }),
+    'index.js': [
+      'function useEffect() {}',
+      'function useState(initial) {',
+      '  return [initial, () => {}]',
+      '}',
+      'module.exports = { useEffect, useState }',
       '',
     ].join('\n'),
   })
@@ -115,6 +151,35 @@ try {
       'void (undefined as unknown as WebPushConfig)',
       '',
     ].join('\n'),
+    // Runs `await import()` on every documented subpath BY PACKAGE SPECIFIER
+    // from inside the consumer directory, so Node's own ESM resolver walks
+    // the packed tarball's `exports` map exactly as a real install would.
+    // This is the check `test:published-exports` cannot do — that script
+    // imports dist/ by relative path, which never touches `exports` at all.
+    'import-check.mjs': [
+      'function assertExport(mod, name, type, subpath) {',
+      '  if (typeof mod[name] !== type) {',
+      "    throw new Error(`'${subpath}' is missing its documented '${name}' export (expected ${type})`)",
+      '  }',
+      '}',
+      '',
+      "const root = await import('@xtr-dev/payload-notifications')",
+      "assertExport(root, 'default', 'function', '.')",
+      "assertExport(root, 'notificationsPlugin', 'function', '.')",
+      '',
+      "const client = await import('@xtr-dev/payload-notifications/client')",
+      "assertExport(client, 'ClientPushManager', 'function', './client')",
+      "assertExport(client, 'usePushNotifications', 'function', './client')",
+      "assertExport(client, 'serviceWorkerCode', 'string', './client')",
+      '',
+      "const rsc = await import('@xtr-dev/payload-notifications/rsc')",
+      "assertExport(rsc, 'WebPushManager', 'function', './rsc')",
+      "assertExport(rsc, 'createPushNotificationEndpoints', 'function', './rsc')",
+      "assertExport(rsc, 'createPushSubscriptionsCollection', 'function', './rsc')",
+      '',
+      "console.log('Runtime ESM import check passed for \\'.\\', \\'./client\\', and \\'./rsc\\' against the packed tarball.')",
+      '',
+    ].join('\n'),
   })
 
   execFileSync(join(repoRoot, 'node_modules', '.bin', 'tsc'), ['--noEmit', '-p', join(consumer, 'tsconfig.json')], {
@@ -123,6 +188,11 @@ try {
   })
 
   console.log('NodeNext consumer type-check passed against the packed declaration graph.')
+
+  execFileSync(process.execPath, [join(consumer, 'import-check.mjs')], {
+    cwd: consumer,
+    stdio: 'inherit',
+  })
 } finally {
   rmSync(scratch, { recursive: true, force: true })
 }
