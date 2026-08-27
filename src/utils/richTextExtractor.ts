@@ -13,6 +13,13 @@ export function extractTextFromRichText(richText: any): string {
     return richText
   }
 
+  if (richText.root && Array.isArray(richText.root.children)) {
+    return richText.root.children
+      .map((block: any) => extractTextFromBlock(block))
+      .filter(Boolean)
+      .join(' ')
+  }
+
   if (Array.isArray(richText)) {
     return richText
       .map(block => extractTextFromBlock(block))
