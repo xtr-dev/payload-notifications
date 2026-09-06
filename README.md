@@ -2,17 +2,17 @@
 
 [![npm version](https://badge.fury.io/js/@xtr-dev%2Fpayload-notifications.svg)](https://www.npmjs.com/package/@xtr-dev/payload-notifications)
 
-A PayloadCMS plugin that adds a configurable notifications collection for sending messages with titles, content, and attachable relationship items.
+A PayloadCMS plugin that adds a configurable notifications collection for sending messages with titles, rich text content, and channel-based targeting.
 
 ⚠️ **Pre-release Warning**: This package is currently in active development (v0.0.x). Breaking changes may occur before v1.0.0. Not recommended for production use.
 
 ## Features
 
 - 📧 Notifications collection with title and message fields
-- 🔗 Configurable relationship attachments to any collection
+- 🔗 Configurable channels for targeting notifications
 - 📱 Built-in read/unread status tracking
 - 🎯 Recipient targeting support
-- ⚙️ Flexible plugin configuration
+- ⚙️ Collection customization via `collectionOverrides`
 - 📅 Automatic timestamp tracking
 - 🔔 Optional web push notifications support (see [WEBPUSH.md](./WEBPUSH.md))
 
@@ -27,14 +27,12 @@ npm install @xtr-dev/payload-notifications
 Add the plugin to your Payload config:
 
 ```typescript
-import { buildConfig } from 'payload/config'
+import { buildConfig } from 'payload'
 import { notificationsPlugin } from '@xtr-dev/payload-notifications'
 
 export default buildConfig({
   plugins: [
-    notificationsPlugin({
-      // Basic configuration
-    })
+    notificationsPlugin()
   ],
   // ... rest of your config
 })
@@ -44,56 +42,26 @@ export default buildConfig({
 
 ### Basic Configuration
 
+Calling `notificationsPlugin()` with no options uses a single built-in `default` channel:
+
 ```typescript
-notificationsPlugin({
-  collections: {
-    slug: 'notifications', // Default collection slug
-  }
-})
+notificationsPlugin()
 ```
 
-### Advanced Configuration with Relationships
+### Configuration with Channels
 
 ```typescript
 notificationsPlugin({
-  collections: {
-    slug: 'notifications',
-    labels: {
-      singular: 'Notification',
-      plural: 'Notifications'
-    }
-  },
-  relationships: [
-    {
-      name: 'order',
-      relationTo: 'orders',
-      label: 'Related Order'
-    },
-    {
-      name: 'user',
-      relationTo: 'users',
-      label: 'Related User'
-    },
-    {
-      name: 'product',
-      relationTo: 'products',
-      label: 'Related Product'
-    }
-  ],
-  access: {
-    // Custom access control functions
-    read: ({ req }) => Boolean(req.user),
-    create: ({ req }) => Boolean(req.user?.role === 'admin'),
-    update: ({ req }) => Boolean(req.user?.role === 'admin'),
-    delete: ({ req }) => Boolean(req.user?.role === 'admin'),
-  },
-  fields: [
-    // Add custom fields to the notifications collection
+  channels: [
+    { id: 'orders', name: 'Order Updates', description: 'Order status changes and shipping notifications' },
+    { id: 'marketing', name: 'Marketing', description: 'Promotions and announcements' }
   ]
 })
 ```
 
-> For web push notifications setup, see [WEBPUSH.md](./WEBPUSH.md)
+Each notification can be assigned one of the configured channels via its `channel` field.
+
+> For web push notifications setup, see [WEBPUSH.md](./WEBPUSH.md). To customize access control or add fields to the generated collections, see [Email Notifications](#email-notifications) below for a `collectionOverrides` example.
 
 ## Collection Schema
 
@@ -101,10 +69,10 @@ The plugin creates a notifications collection with the following fields:
 
 - **title** (required text): The notification title
 - **message** (required richText): The notification content
-- **recipient** (optional relationship): User who should receive the notification (optional if using custom recipient fields)
+- **recipient** (optional relationship to `users`): User who should receive the notification (optional if delivery is driven by a custom `findSubscriptions` hook instead)
+- **channel** (optional select): Which configured channel the notification belongs to
 - **isRead** (checkbox): Read status tracking
 - **readAt** (date): When the notification was read
-- **attachments** (group): Configurable relationship fields
 - **createdAt/updatedAt**: Automatic timestamps
 
 ## API Usage
@@ -124,10 +92,7 @@ const notification = await payload.create({
       }
     ],
     recipient: userId,
-    attachments: {
-      order: orderId,
-      product: productId
-    }
+    channel: 'orders'
   }
 })
 ```
@@ -162,25 +127,9 @@ await payload.update({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `collections.slug` | `string` | `'notifications'` | Collection slug |
-| `collections.labels` | `object` | `{ singular: 'Notification', plural: 'Notifications' }` | Collection labels |
-| `relationships` | `array` | `[]` | Configurable relationship fields |
-| `access` | `object` | Default access | Custom access control functions |
-| `fields` | `array` | `[]` | Additional custom fields |
-
-### Relationship Configuration
-
-Each relationship in the `relationships` array supports:
-
-```typescript
-{
-  name: string;        // Field name in attachments group
-  relationTo: string;  // Target collection slug
-  label?: string;      // Admin UI label
-  required?: boolean;  // Whether field is required
-  hasMany?: boolean;   // Allow multiple selections
-}
-```
+| `channels` | `NotificationChannel[]` | built-in `default` channel | Channel definitions; each notification can be assigned one via its `channel` field |
+| `webPush` | `object` | `undefined` | Web push credentials and behavior — see [WEBPUSH.md](./WEBPUSH.md) |
+| `collectionOverrides` | `object` | `undefined` | Functions that receive and return the generated `notifications`/`pushSubscriptions` collection config, for customizing access control, fields, or hooks |
 
 ## Examples
 
@@ -188,10 +137,10 @@ Each relationship in the `relationships` array supports:
 
 ```typescript
 notificationsPlugin({
-  relationships: [
-    { name: 'order', relationTo: 'orders', label: 'Order' },
-    { name: 'product', relationTo: 'products', label: 'Product', hasMany: true },
-    { name: 'customer', relationTo: 'customers', label: 'Customer' }
+  channels: [
+    { id: 'orders', name: 'Order Updates' },
+    { id: 'products', name: 'Product Updates' },
+    { id: 'customers', name: 'Customer Messages' }
   ]
 })
 ```
@@ -200,10 +149,10 @@ notificationsPlugin({
 
 ```typescript
 notificationsPlugin({
-  relationships: [
-    { name: 'post', relationTo: 'posts', label: 'Blog Post' },
-    { name: 'page', relationTo: 'pages', label: 'Page' },
-    { name: 'media', relationTo: 'media', label: 'Media', hasMany: true }
+  channels: [
+    { id: 'posts', name: 'Blog Posts' },
+    { id: 'pages', name: 'Page Updates' },
+    { id: 'media', name: 'Media Updates' }
   ]
 })
 ```
