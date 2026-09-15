@@ -1,5 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { WebPushManager } from '../utils/webPush.js'
+import { PushSubscriptionOwnershipError, WebPushManager } from '../utils/webPush.js'
 import type { NotificationsPluginOptions } from '../types.js'
 
 /**
@@ -44,6 +44,9 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
 
           return Response.json({ success: true })
         } catch (error: any) {
+          if (error instanceof PushSubscriptionOwnershipError) {
+            return Response.json({ error: error.message }, { status: 403 })
+          }
           console.error('Push subscription error:', error)
           return Response.json(
             { error: 'Failed to subscribe to push notifications' },
