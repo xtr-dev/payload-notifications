@@ -98,11 +98,13 @@ export default buildConfig({
         transformNotification: (notification: any) => {
           const title = notification.title || 'New Notification'
 
-          // Extract text from rich text message
+          // Extract text from rich text message (handles Lexical {root} wrapper and Slate arrays)
           let body = 'You have a new notification'
-          if (notification.message && Array.isArray(notification.message)) {
+          const blocks = notification.message?.root?.children
+            || (Array.isArray(notification.message) ? notification.message : [])
+          if (blocks.length > 0) {
             const textParts: string[] = []
-            notification.message.forEach((block: any) => {
+            blocks.forEach((block: any) => {
               if (block.children && Array.isArray(block.children)) {
                 block.children.forEach((child: any) => {
                   if (child.text) textParts.push(child.text)
