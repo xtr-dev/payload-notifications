@@ -93,7 +93,7 @@ self.addEventListener('notificationclose', (event) => {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         action: 'close',
-        notificationId: data.id,
+        notificationId: data.notificationId,
         timestamp: Date.now(),
       }),
     }).catch(console.error)
