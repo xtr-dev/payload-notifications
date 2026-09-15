@@ -8,6 +8,9 @@ importers:
 
   .:
     dependencies:
+      '@types/web-push':
+        specifier: ^3.6.3
+        version: 3.6.4
       web-push:
         specifier: ^3.6.7
         version: 3.6.7
@@ -59,9 +62,6 @@ importers:
       '@types/react-dom':
         specifier: 19.1.6
         version: 19.1.6(@types/react@19.1.8)
-      '@types/web-push':
-        specifier: ^3.6.3
-        version: 3.6.4
       copyfiles:
         specifier: 2.4.1
         version: 2.4.1
