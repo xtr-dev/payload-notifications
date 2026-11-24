@@ -1,8 +1,8 @@
 import type { Config } from 'payload'
-import type { NotificationsPluginOptions, NotificationsPlugin } from './types'
-import { createNotificationsCollection } from './collections/notifications'
-import { createPushSubscriptionsCollection } from './collections/push-subscriptions'
-import { createPushNotificationEndpoints } from './endpoints/push-notifications'
+import type { NotificationsPluginOptions, NotificationsPlugin } from './types.js'
+import { createNotificationsCollection } from './collections/notifications.js'
+import { createPushSubscriptionsCollection } from './collections/push-subscriptions.js'
+import { createPushNotificationEndpoints } from './endpoints/push-notifications.js'
 
 const defaultOptions: NotificationsPluginOptions = {
   channels: [
@@ -31,20 +31,22 @@ export const notificationsPlugin: NotificationsPlugin = (options = defaultOption
     // Create the notifications collection with provided options
     const notificationsCollection = createNotificationsCollection(options)
 
-    // Add collections to the Payload config
+    // The push-subscriptions collection is registered whether or not web push
+    // is enabled. Registering it only when enabled made the generated types and
+    // database schema depend on the VAPID keys being present: environments
+    // without them (CI, `payload generate:types`, local dev) generated types
+    // without `push-subscriptions`, and host code that references the
+    // collection then failed to type-check. Only the endpoints and the sending
+    // of pushes are gated on `webPush.enabled`.
     const collections = config.collections || []
     const newCollections = [
       ...collections,
       notificationsCollection,
+      createPushSubscriptionsCollection(options),
     ]
 
-    // Add push subscriptions collection if web push is enabled
-    if (options.webPush?.enabled) {
-      const pushSubscriptionsCollection = createPushSubscriptionsCollection(options)
-      newCollections.push(pushSubscriptionsCollection)
-    }
-
-    // Create push notification endpoints if web push is enabled
+    // The subscribe/unsubscribe/VAPID-key endpoints only exist when web push is
+    // enabled, so a host without VAPID keys exposes no push API.
     const endpoints = config.endpoints || []
     const pushEndpoints = options.webPush?.enabled
       ? createPushNotificationEndpoints(options)
@@ -66,7 +68,7 @@ export type {
   NotificationsPluginOptions,
   NotificationChannel,
   WebPushConfig,
-} from './types'
+} from './types.js'
 
 // Default export
 export default notificationsPlugin
