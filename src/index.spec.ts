@@ -1,5 +1,7 @@
 import type { CollectionConfig, Config, Field, SelectField } from 'payload'
+
 import { describe, expect, it } from 'vitest'
+
 import { notificationsPlugin } from './index'
 
 /**
@@ -22,18 +24,18 @@ describe('notificationsPlugin with no arguments', () => {
 
     // The {} input exercises the config.collections || [] and
     // config.endpoints || [] fallbacks: both keys are absent.
-    expect(result.collections).toHaveLength(1)
+    // push-subscriptions is always registered (see
+    // src/index.pushSubscriptions.spec.ts), so the defaults yield exactly
+    // these two collections.
+    expect(result.collections!.map((c) => c.slug)).toEqual(['notifications', 'push-subscriptions'])
     const collection = result.collections![0]
-    expect(collection.slug).toBe('notifications')
 
     // The default channel list is turned into select options at
     // src/collections/notifications.ts (options.channels.map).
     const channelField = getChannelField(collection)
     expect(channelField.options).toEqual([{ label: 'Default', value: 'default' }])
 
-    // Web push defaults to off, so neither its collection nor its
-    // endpoints may appear: the gate turns everything on or nothing on.
-    expect(result.collections!.some((c) => c.slug === 'push-subscriptions')).toBe(false)
+    // Web push defaults to off, so none of its endpoints may appear.
     expect(result.endpoints).toEqual([])
   })
 
