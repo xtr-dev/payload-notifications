@@ -75,6 +75,8 @@ The plugin creates a notifications collection with the following fields:
 - **readAt** (date): When the notification was read
 - **createdAt/updatedAt**: Automatic timestamps
 
+It also always creates a `push-subscriptions` collection, even when web push is disabled, so generated types and the database schema do not depend on whether VAPID keys are configured. Without `webPush.enabled` the collection simply stays empty: no push endpoints are registered and no pushes are sent. See [WEBPUSH.md](./WEBPUSH.md).
+
 ## API Usage
 
 ### Creating Notifications

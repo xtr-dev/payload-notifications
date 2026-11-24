@@ -323,7 +323,7 @@ await pushManager.sendToUser(
 
 ## API Endpoints
 
-The plugin automatically creates these endpoints when web push is enabled:
+The plugin automatically creates these endpoints when web push is enabled. (The `push-subscriptions` collection itself is always registered, so `payload generate:types` produces the same types with or without VAPID keys; only these endpoints and the sending of pushes depend on `webPush.enabled`.)
 
 - `POST /api/push-notifications/subscribe` - Subscribe to push notifications ⚠️ **Requires authentication**
 - `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
