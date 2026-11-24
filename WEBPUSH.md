@@ -273,17 +273,35 @@ await pushManager.unsubscribe()
 
 ## Service Worker Setup
 
-The package has no CLI — write the exported service worker template to a file yourself. `serviceWorkerCode` is a string export from `/client` containing the complete template:
+The package ships a ready-to-serve service worker at `@xtr-dev/payload-notifications/sw.js` (`dist/sw.js`). It is plain JavaScript and a classic (non-module) script, so you can serve it unedited and register it with `navigator.serviceWorker.register('/sw.js')`. Copy it into your public folder, for example from a `postinstall` or build step:
 
-```typescript
-// scripts/generate-sw.ts
-import { writeFileSync } from 'fs'
-import { serviceWorkerCode } from '@xtr-dev/payload-notifications/client'
+```js
+// scripts/copy-sw.mjs
+import { copyFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 
-writeFileSync('public/sw.js', serviceWorkerCode)
+const require = createRequire(import.meta.url)
+copyFileSync(require.resolve('@xtr-dev/payload-notifications/sw.js'), 'public/sw.js')
 ```
 
-Run it with `tsx scripts/generate-sw.ts` (or any TypeScript runner) whenever the template changes. The generated file handles:
+The same code is also exported as the `serviceWorkerCode` string from `/client`, if you prefer to write the file yourself (`writeFileSync('public/sw.js', serviceWorkerCode)`).
+
+### Icon and badge
+
+The worker shows the `icon` and `badge` from the push payload (set them in `transformNotification`). For a push whose payload has none, you can set defaults with query parameters on the registration URL — no need to edit the file:
+
+```typescript
+navigator.serviceWorker.register('/sw.js?icon=/icons/icon-192.png&badge=/icons/badge-72.png')
+
+// or, with the client push manager:
+new ClientPushManager(vapidPublicKey, {
+  serviceWorkerPath: '/sw.js?icon=/icons/icon-192.png&badge=/icons/badge-72.png',
+})
+```
+
+Without either, the notification is shown without an icon or badge; the worker itself no longer hardcodes `/icon-192x192.png` and `/badge-72x72.png`. Note that pushes sent by the plugin (`autoPush`, `WebPushManager.sendToRecipient`) still fill in an icon and badge server-side when `transformNotification` returns none, so for those, set `icon`/`badge` in `transformNotification`; the query parameters apply to pushes whose payload really has none.
+
+The worker handles:
 
 - Push notification events
 - Notification click handling
