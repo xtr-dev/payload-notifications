@@ -13,18 +13,30 @@ export function createPushSubscriptionsCollection(options: NotificationsPluginOp
   // notifications collection uses for delete) can access it. The local API
   // bypasses access control and keeps working either way.
   const isAdmin = ({ req }: { req: any }) => Boolean(req.user?.role === 'admin')
+
+  // With push enabled, read/update/delete are scoped to the subscription's own
+  // user, so one authenticated user can't read or modify another user's
+  // endpoint/keys via the REST/GraphQL API directly (bypassing the ownership
+  // check in the /unsubscribe endpoint). Admins keep full access, matching the
+  // convention in the notifications collection.
+  const ownRecordOrAdmin = ({ req }: { req: any }) => {
+    if (!req.user) return false
+    if (req.user.role === 'admin') return true
+    return { user: { equals: req.user.id } }
+  }
+
   const access: CollectionConfig['access'] = options.webPush?.enabled
     ? {
-        read: ({ req }: { req: any }) => Boolean(req.user),
         create: ({ req }: { req: any }) => Boolean(req.user),
-        update: ({ req }: { req: any }) => Boolean(req.user),
-        delete: ({ req }: { req: any }) => Boolean(req.user),
+        delete: ownRecordOrAdmin,
+        read: ownRecordOrAdmin,
+        update: ownRecordOrAdmin,
       }
     : {
-        read: isAdmin,
         create: isAdmin,
-        update: isAdmin,
         delete: isAdmin,
+        read: isAdmin,
+        update: isAdmin,
       }
 
   const config: CollectionConfig = {
@@ -115,8 +127,16 @@ export function createPushSubscriptionsCollection(options: NotificationsPluginOp
     hooks: {
       beforeChange: [
         ({ req, data }: { req: any; data: any }) => {
-          // For user-based subscriptions, default to current user
-          if (req.user && !data.user) {
+          if (!req.user) return data
+          // Non-admins always own the row they write. Create and update both
+          // run this hook, so a logged-in user cannot attach their endpoint/keys
+          // to another user's id (sendToRecipient would then push the victim's
+          // notifications to the attacker). Admins can still assign a
+          // subscription to any user, and still default to themselves when the
+          // field is omitted.
+          if (req.user.role !== 'admin') {
+            data.user = req.user.id
+          } else if (!data.user) {
             data.user = req.user.id
           }
           return data

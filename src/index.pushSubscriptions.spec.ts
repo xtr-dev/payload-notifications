@@ -106,11 +106,20 @@ describe('push-subscriptions access when web push is disabled', () => {
     }
   })
 
-  it('keeps the authenticated-user access when web push is enabled', () => {
+  it('keeps the owner-scoped access when web push is enabled', () => {
     const access = accessOf({ ...vapid, enabled: true })
+    const customer = { id: 1, role: 'customer' }
     for (const operation of operations) {
       expect(access[operation]({ req: { user: null } }), `${operation} anonymous`).toBe(false)
-      expect(access[operation]({ req: { user: { id: 1, role: 'customer' } } }), `${operation} non-admin`).toBe(true)
+      expect(access[operation]({ req: { user: { id: 2, role: 'admin' } } }), `${operation} admin`).toBe(true)
+    }
+    // Any logged-in user may create; the beforeChange hook binds the row to them.
+    expect(access.create({ req: { user: customer } }), 'create non-admin').toBe(true)
+    // Read, update and delete are limited to the non-admin's own subscriptions.
+    for (const operation of ['read', 'update', 'delete'] as const) {
+      expect(access[operation]({ req: { user: customer } }), `${operation} non-admin`).toEqual({
+        user: { equals: 1 },
+      })
     }
   })
 })
