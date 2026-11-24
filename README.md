@@ -2,17 +2,17 @@
 
 [![npm version](https://badge.fury.io/js/@xtr-dev%2Fpayload-notifications.svg)](https://www.npmjs.com/package/@xtr-dev/payload-notifications)
 
-A PayloadCMS plugin that adds a configurable notifications collection with channels, recipient targeting, read tracking, and optional web push delivery.
+A PayloadCMS plugin that adds a configurable notifications collection for sending messages with titles, rich text content, and channel-based targeting.
 
 ⚠️ **Pre-release Warning**: This package is currently in active development (v0.0.x). Breaking changes may occur before v1.0.0. Not recommended for production use.
 
 ## Features
 
 - 📧 Notifications collection with title and message fields
-- 🗂️ Configurable notification channels
+- 🔗 Configurable channels for targeting notifications
 - 📱 Built-in read/unread status tracking
 - 🎯 Recipient targeting support
-- ⚙️ Flexible plugin configuration
+- ⚙️ Collection customization via `collectionOverrides`
 - 📅 Automatic timestamp tracking
 - 🔔 Optional web push notifications support (see [WEBPUSH.md](./WEBPUSH.md))
 
@@ -32,9 +32,7 @@ import { notificationsPlugin } from '@xtr-dev/payload-notifications'
 
 export default buildConfig({
   plugins: [
-    notificationsPlugin({
-      channels: [{ id: 'default', name: 'Default' }]
-    }),
+    notificationsPlugin()
   ],
   // ... rest of your config
 })
@@ -44,38 +42,28 @@ export default buildConfig({
 
 ### Basic Configuration
 
+Calling `notificationsPlugin()` with no options uses a single built-in `default` channel:
+
+```typescript
+notificationsPlugin()
+```
+
+### Configuration with Channels
+
 ```typescript
 notificationsPlugin({
   channels: [
-    { id: 'general', name: 'General' },
-    { id: 'orders', name: 'Order updates' }
+    { id: 'orders', name: 'Order Updates', description: 'Order status changes and shipping notifications' },
+    { id: 'marketing', name: 'Marketing', description: 'Promotions and announcements' }
   ]
 })
 ```
 
-Calling `notificationsPlugin()` without an options object uses a built-in `default` channel. If you pass an options object, `channels` is required and must contain at least one channel.
+Each notification can be assigned one of the configured channels via its `channel` field.
 
-### Advanced Configuration
+If you pass an options object, `channels` is required and must contain at least one channel; the plugin throws on an empty array.
 
-```typescript
-notificationsPlugin({
-  channels: [
-    { id: 'general', name: 'General', description: 'General announcements' },
-    { id: 'orders', name: 'Order updates' }
-  ],
-  collectionOverrides: {
-    notifications: (config) => ({
-      ...config,
-      labels: {
-        singular: 'Inbox item',
-        plural: 'Inbox'
-      }
-    })
-  }
-})
-```
-
-> For web push notifications setup, see [WEBPUSH.md](./WEBPUSH.md)
+> For web push notifications setup, see [WEBPUSH.md](./WEBPUSH.md). To customize access control or add fields to the generated collections, see [Email Notifications](#email-notifications) below for a `collectionOverrides` example.
 
 ## Collection Schema
 
@@ -83,8 +71,8 @@ The plugin creates a notifications collection with the following fields:
 
 - **title** (required text): The notification title
 - **message** (required richText): The notification content
-- **recipient** (optional relationship): User who should receive the notification (optional if using custom recipient fields)
-- **channel** (select): One of the configured notification channels
+- **recipient** (optional relationship to `users`): User who should receive the notification (optional if delivery is driven by a custom `findSubscriptions` hook instead)
+- **channel** (optional select): Which configured channel the notification belongs to
 - **isRead** (checkbox): Read status tracking
 - **readAt** (date): When the notification was read
 - **createdAt/updatedAt**: Automatic timestamps
@@ -154,38 +142,33 @@ await payload.update({
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
-| `channels` | `NotificationChannel[]` | Required with an options object | Channels available on notifications; must not be empty |
-| `collectionOverrides` | `object` | `undefined` | Functions that customize the generated `notifications` and `pushSubscriptions` collection configs |
-| `webPush` | `WebPushConfig` | `undefined` | Optional web push credentials, delivery behavior, and hooks |
+| `channels` | `NotificationChannel[]` | built-in `default` channel | Channel definitions; each notification can be assigned one via its `channel` field |
+| `webPush` | `object` | `undefined` | Web push credentials and behavior — see [WEBPUSH.md](./WEBPUSH.md) |
+| `collectionOverrides` | `object` | `undefined` | Functions that receive and return the generated `notifications`/`pushSubscriptions` collection config, for customizing access control, fields, or hooks |
 
 ## Examples
 
-### Multiple Channels
+### E-commerce Notifications
 
 ```typescript
 notificationsPlugin({
   channels: [
-    { id: 'orders', name: 'Order updates' },
-    { id: 'products', name: 'Product updates' },
-    { id: 'promotions', name: 'Promotions' }
+    { id: 'orders', name: 'Order Updates' },
+    { id: 'products', name: 'Product Updates' },
+    { id: 'customers', name: 'Customer Messages' }
   ]
 })
 ```
 
-### Customize the Notifications Collection
+### Content Management Notifications
 
 ```typescript
 notificationsPlugin({
-  channels: [{ id: 'content', name: 'Content updates' }],
-  collectionOverrides: {
-    notifications: (config) => ({
-      ...config,
-      fields: [
-        ...config.fields,
-        { name: 'sourceURL', type: 'text', label: 'Source URL' }
-      ]
-    })
-  }
+  channels: [
+    { id: 'posts', name: 'Blog Posts' },
+    { id: 'pages', name: 'Page Updates' },
+    { id: 'media', name: 'Media Updates' }
+  ]
 })
 ```
 

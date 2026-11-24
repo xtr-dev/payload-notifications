@@ -1,6 +1,6 @@
 import webpush from 'web-push'
 import type { Payload } from 'payload'
-import type { WebPushConfig, PushSubscription } from '../types'
+import type { WebPushConfig, PushSubscription } from '../types.js'
 
 /**
  * Web Push utility class for handling push notifications
@@ -239,12 +239,15 @@ export class WebPushManager {
   /**
    * Unsubscribe a user from push notifications
    */
-  public async unsubscribe(endpoint: string): Promise<void> {
+  public async unsubscribe(userId: string | number, endpoint: string): Promise<void> {
     try {
       const subscription = await this.payload.find({
         collection: 'push-subscriptions',
         where: {
-          endpoint: { equals: endpoint },
+          and: [
+            { endpoint: { equals: endpoint } },
+            { user: { equals: userId } },
+          ],
         },
         limit: 1,
       })

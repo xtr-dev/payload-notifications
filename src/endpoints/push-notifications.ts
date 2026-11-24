@@ -1,6 +1,6 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { WebPushManager } from '../utils/webPush'
-import type { NotificationsPluginOptions } from '../types'
+import { WebPushManager } from '../utils/webPush.js'
+import type { NotificationsPluginOptions } from '../types.js'
 
 /**
  * Create push notification API endpoints
@@ -59,6 +59,10 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
       method: 'post',
       handler: async (req: PayloadRequest) => {
         try {
+          if (!req.user) {
+            return Response.json({ error: 'Authentication required' }, { status: 401 })
+          }
+
           const body = await req.json?.()
           if (!body || !(typeof body === 'object' && 'endpoint' in body)) {
             return Response.json({ error: 'Invalid request body' }, { status: 400 })
@@ -71,7 +75,7 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           }
 
           const pushManager = new WebPushManager(webPushConfig, req.payload)
-          await pushManager.unsubscribe(endpoint)
+          await pushManager.unsubscribe(req.user.id, endpoint)
 
           return Response.json({ success: true })
         } catch (error: any) {

@@ -1,5 +1,5 @@
 import type { CollectionConfig } from 'payload'
-import type { NotificationsPluginOptions } from '../types'
+import type { NotificationsPluginOptions } from '../types.js'
 
 /**
  * Creates a collection to store web push subscriptions

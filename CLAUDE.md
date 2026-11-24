@@ -4,7 +4,7 @@
 
 This is a PayloadCMS plugin that adds a configurable notifications collection. The plugin allows developers to:
 - Create notifications with titles and rich text messages
-- Configure notification channels
+- Organize notifications into configurable channels
 - Track read/unread status
 - Target specific recipients
 - Optionally deliver web push notifications
@@ -14,20 +14,25 @@ This is a PayloadCMS plugin that adds a configurable notifications collection. T
 ### Plugin Structure
 ```
 src/
-├── index.ts              # Main plugin export
-├── types.ts              # TypeScript interfaces
-├── client/               # Browser push subscription helpers
-│   ├── push-manager.ts
-│   └── service-worker.ts
+├── index.ts                         # Plugin entry point and Payload config integration
+├── types.ts                         # Public plugin option and web push types
+├── client/
+│   ├── push-manager.ts              # Browser push subscription management
+│   └── service-worker.ts            # Service worker source for push display and click handling
 ├── collections/
-│   ├── notifications.ts       # Notifications collection schema
-│   └── push-subscriptions.ts  # Web push subscription schema
-├── endpoints/            # Web push endpoints
-├── exports/              # Client and React Server Component entry points
-│   ├── client.ts
-│   └── rsc.ts
-└── utils/                # Web push and rich-text helpers
+│   ├── notifications.ts             # Notification schema and automatic push hook
+│   └── push-subscriptions.ts        # Web push subscription schema
+├── endpoints/
+│   └── push-notifications.ts        # Subscribe, unsubscribe, and VAPID key endpoints
+├── utils/
+│   ├── richTextExtractor.ts         # Plain-text extraction and default push content
+│   └── webPush.ts                   # Server-side subscription and delivery manager
+└── exports/
+    ├── client.ts                    # Browser push manager, service worker, and React hook exports
+    └── rsc.ts                       # Server-only web push exports
 ```
+
+`src/index.ts` always adds the notifications collection. When `webPush.enabled` is true, it also adds the push-subscriptions collection and push notification endpoints. The notifications collection can additionally send a push after creation when `webPush.autoPush` is true.
 
 ## Development Guidelines
 
@@ -39,11 +44,14 @@ src/
 
 ### Plugin Configuration
 The plugin accepts a configuration object with:
-- `channels`: Required, non-empty array of notification channels
-- `collectionOverrides`: Optional functions for customizing generated collection configs
-- `webPush`: Optional web push configuration
+- `channels` (required): An array of `{ id, name, description? }` channel definitions. These become the channel choices on notifications and push subscriptions. Calling `notificationsPlugin()` without options uses the built-in `default` channel.
+- `webPush` (optional): Web push credentials and behavior. It requires `vapidPublicKey`, `vapidPrivateKey`, and `vapidSubject`; it can also set `enabled`, `autoPush`, request `options`, `transformNotification`, and `findSubscriptions`.
+- `collectionOverrides` (optional): Functions that receive and return the generated `notifications` or `pushSubscriptions` `CollectionConfig`, allowing either collection schema to be customized.
 
-Calling `notificationsPlugin()` without an options object uses the built-in default channel.
+### Relationship System
+- The notifications collection has one fixed relationship field, `recipient`, targeting the `users` collection
+- `recipient` is optional (`required: false`) — leave it unset when delivery is driven by a custom `findSubscriptions` hook instead
+- There is no dynamic or per-collection relationship builder; the field set is fixed and customized only through `collectionOverrides`
 
 ### Collection Schema
 The notifications collection includes:
@@ -60,7 +68,7 @@ The notifications collection includes:
 ## Build Process
 - Use TypeScript compiler for builds
 - Generate declaration files (.d.ts)
-- Bundle for both CommonJS and ES modules
+- Bundle as ES modules only (`.swcrc` sets `module.type: "es6"`)
 - Include source maps for debugging
 
 ## Plugin Registration
@@ -75,7 +83,7 @@ export const notificationsPlugin = (options?: NotificationsPluginOptions) => {
 
 ## Key Implementation Notes
 1. Use PayloadCMS field types and validation
-2. Preserve generated fields, hooks, and access rules in collection overrides unless intentionally replacing them
-3. Keep `channels` non-empty whenever an options object is supplied
-4. Gate both push subscriptions and push endpoints on `webPush.enabled`
-5. Ensure the plugin doesn't conflict with existing collections or endpoints
+2. Leverage PayloadCMS access control patterns
+3. Let consumers customize the generated collection schemas via `collectionOverrides`
+4. Provide sensible defaults for all configuration options
+5. Ensure plugin doesn't conflict with existing collections
