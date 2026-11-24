@@ -1,6 +1,6 @@
 {
   "name": "@xtr-dev/payload-notifications",
-  "version": "0.0.5",
+  "version": "0.0.6",
   "description": "A PayloadCMS plugin for channel-based notifications with recipient targeting, read tracking, and optional web push delivery",
   "license": "MIT",
   "type": "module",
