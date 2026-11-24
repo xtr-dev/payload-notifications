@@ -1,8 +1,8 @@
 import type { Config } from 'payload'
-import type { NotificationsPluginOptions, NotificationsPlugin } from './types'
-import { createNotificationsCollection } from './collections/notifications'
-import { createPushSubscriptionsCollection } from './collections/push-subscriptions'
-import { createPushNotificationEndpoints } from './endpoints/push-notifications'
+import type { NotificationsPluginOptions, NotificationsPlugin } from './types.js'
+import { createNotificationsCollection } from './collections/notifications.js'
+import { createPushSubscriptionsCollection } from './collections/push-subscriptions.js'
+import { createPushNotificationEndpoints } from './endpoints/push-notifications.js'
 
 const defaultOptions: NotificationsPluginOptions = {
   channels: [
@@ -66,7 +66,7 @@ export type {
   NotificationsPluginOptions,
   NotificationChannel,
   WebPushConfig,
-} from './types'
+} from './types.js'
 
 // Default export
 export default notificationsPlugin
