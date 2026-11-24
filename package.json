@@ -27,7 +27,8 @@
     "dist"
   ],
   "scripts": {
-    "build": "pnpm copyfiles && pnpm build:types && pnpm build:swc",
+    "build": "pnpm copyfiles && pnpm build:types && pnpm build:swc && pnpm build:sw",
+    "build:sw": "node scripts/write-service-worker.mjs",
     "build:swc": "swc ./src -d ./dist --config-file .swcrc --strip-leading-paths",
     "build:types": "tsc --outDir dist --rootDir ./src",
     "clean": "rimraf {dist,*.tsbuildinfo}",
@@ -43,7 +44,7 @@
     "prepublishOnly": "pnpm clean && pnpm build",
     "test": "pnpm test:int",
     "test:e2e": "playwright test",
-    "test:published-exports": "node --input-type=module -e \"await Promise.all(['./dist/index.js', './dist/exports/client.js', './dist/exports/rsc.js'].map((entry) => import(entry)))\"",
+    "test:published-exports": "node --input-type=module -e \"await Promise.all(['./dist/index.js', './dist/exports/client.js', './dist/exports/rsc.js'].map((entry) => import(entry)))\" && node scripts/verify-service-worker.mjs",
     "test:declarations": "node scripts/verify-nodenext-consumer.mjs",
     "test:int": "vitest run",
     "test:unit": "vitest run src"
@@ -124,7 +125,8 @@
         "import": "./dist/exports/rsc.js",
         "types": "./dist/exports/rsc.d.ts",
         "default": "./dist/exports/rsc.js"
-      }
+      },
+      "./sw.js": "./dist/sw.js"
     },
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts"

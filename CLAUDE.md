@@ -66,6 +66,7 @@ The notifications collection includes:
 - Generate declaration files (.d.ts)
 - Bundle as ES modules only (`.swcrc` sets `module.type: "es6"`)
 - Include source maps for debugging
+- `build:sw` (`scripts/write-service-worker.mjs`) writes the `serviceWorkerCode` string from `src/exports/client.ts` to `dist/sw.js` (exported as `./sw.js`) and `dist/client/service-worker.js`, and fails if it is not a valid classic (non-module) script. Keep the service worker plain JavaScript: no `import`/`export`, no TypeScript syntax
 
 ## Plugin Registration
 The plugin should be registered in PayloadCMS using the standard plugin pattern:
