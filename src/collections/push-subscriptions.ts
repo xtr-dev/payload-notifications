@@ -6,11 +6,21 @@ import type { NotificationsPluginOptions } from '../types.js'
  * Each user can have multiple subscriptions (different devices/browsers)
  */
 export function createPushSubscriptionsCollection(options: NotificationsPluginOptions): CollectionConfig {
+  // Scopes read/update/delete to the subscription's own user, so one authenticated
+  // user can't read or modify another user's endpoint/keys via the REST/GraphQL API
+  // directly (bypassing the ownership check in the /unsubscribe endpoint). Admins
+  // keep full access, matching the convention in the notifications collection.
+  const ownRecordOrAdmin = ({ req }: { req: any }) => {
+    if (!req.user) return false
+    if (req.user.role === 'admin') return true
+    return { user: { equals: req.user.id } }
+  }
+
   const access: CollectionConfig['access'] = {
-    read: ({ req }: { req: any }) => Boolean(req.user),
+    read: ownRecordOrAdmin,
     create: ({ req }: { req: any }) => Boolean(req.user),
-    update: ({ req }: { req: any }) => Boolean(req.user),
-    delete: ({ req }: { req: any }) => Boolean(req.user),
+    update: ownRecordOrAdmin,
+    delete: ownRecordOrAdmin,
   }
 
   const config: CollectionConfig = {
@@ -101,8 +111,16 @@ export function createPushSubscriptionsCollection(options: NotificationsPluginOp
     hooks: {
       beforeChange: [
         ({ req, data }: { req: any; data: any }) => {
-          // For user-based subscriptions, default to current user
-          if (req.user && !data.user) {
+          if (!req.user) return data
+          // Non-admins always own the row they write. Create and update both
+          // run this hook, so a logged-in user cannot attach their endpoint/keys
+          // to another user's id (sendToRecipient would then push the victim's
+          // notifications to the attacker). Admins can still assign a
+          // subscription to any user, and still default to themselves when the
+          // field is omitted.
+          if (req.user.role !== 'admin') {
+            data.user = req.user.id
+          } else if (!data.user) {
             data.user = req.user.id
           }
           return data
