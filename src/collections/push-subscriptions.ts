@@ -6,12 +6,26 @@ import type { NotificationsPluginOptions } from '../types.js'
  * Each user can have multiple subscriptions (different devices/browsers)
  */
 export function createPushSubscriptionsCollection(options: NotificationsPluginOptions): CollectionConfig {
-  const access: CollectionConfig['access'] = {
-    read: ({ req }: { req: any }) => Boolean(req.user),
-    create: ({ req }: { req: any }) => Boolean(req.user),
-    update: ({ req }: { req: any }) => Boolean(req.user),
-    delete: ({ req }: { req: any }) => Boolean(req.user),
-  }
+  // The collection is registered even when web push is disabled, so the
+  // generated types and schema stay stable. A host that never enabled push
+  // should not get a writable REST/GraphQL surface it did not ask for, so in
+  // that case only admins (the same `role === 'admin'` check the
+  // notifications collection uses for delete) can access it. The local API
+  // bypasses access control and keeps working either way.
+  const isAdmin = ({ req }: { req: any }) => Boolean(req.user?.role === 'admin')
+  const access: CollectionConfig['access'] = options.webPush?.enabled
+    ? {
+        read: ({ req }: { req: any }) => Boolean(req.user),
+        create: ({ req }: { req: any }) => Boolean(req.user),
+        update: ({ req }: { req: any }) => Boolean(req.user),
+        delete: ({ req }: { req: any }) => Boolean(req.user),
+      }
+    : {
+        read: isAdmin,
+        create: isAdmin,
+        update: isAdmin,
+        delete: isAdmin,
+      }
 
   const config: CollectionConfig = {
     slug: 'push-subscriptions',

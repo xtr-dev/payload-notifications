@@ -84,3 +84,33 @@ describe('push endpoints stay gated on webPush.enabled', () => {
     expect(notifications?.hooks?.afterChange).toBeUndefined()
   })
 })
+
+describe('push-subscriptions access when web push is disabled', () => {
+  type AccessFn = (args: { req: { user: unknown } }) => unknown
+  const operations = ['read', 'create', 'update', 'delete'] as const
+
+  const accessOf = (webPush?: WebPushConfig) => {
+    const collection = (apply(webPush).collections ?? []).find((c) => c.slug === 'push-subscriptions')
+    return collection?.access as Record<(typeof operations)[number], AccessFn>
+  }
+
+  it.each([
+    ['webPush omitted', undefined],
+    ['webPush.enabled: false', { ...vapid, enabled: false }],
+  ] as Array<[string, undefined | WebPushConfig]>)('only admins have access with %s', (_label, webPush) => {
+    const access = accessOf(webPush)
+    for (const operation of operations) {
+      expect(access[operation]({ req: { user: null } }), `${operation} anonymous`).toBe(false)
+      expect(access[operation]({ req: { user: { id: 1, role: 'customer' } } }), `${operation} non-admin`).toBe(false)
+      expect(access[operation]({ req: { user: { id: 2, role: 'admin' } } }), `${operation} admin`).toBe(true)
+    }
+  })
+
+  it('keeps the authenticated-user access when web push is enabled', () => {
+    const access = accessOf({ ...vapid, enabled: true })
+    for (const operation of operations) {
+      expect(access[operation]({ req: { user: null } }), `${operation} anonymous`).toBe(false)
+      expect(access[operation]({ req: { user: { id: 1, role: 'customer' } } }), `${operation} non-admin`).toBe(true)
+    }
+  })
+})

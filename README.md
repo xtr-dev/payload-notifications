@@ -75,7 +75,7 @@ The plugin creates a notifications collection with the following fields:
 - **readAt** (date): When the notification was read
 - **createdAt/updatedAt**: Automatic timestamps
 
-It also always creates a `push-subscriptions` collection, even when web push is disabled, so generated types and the database schema do not depend on whether VAPID keys are configured. Without `webPush.enabled` the collection simply stays empty: no push endpoints are registered and no pushes are sent. See [WEBPUSH.md](./WEBPUSH.md).
+It also always creates a `push-subscriptions` collection, even when web push is disabled, so generated types and the database schema do not depend on whether VAPID keys are configured. Without `webPush.enabled` the collection simply stays empty: no push endpoints are registered, no pushes are sent, and only admins (`role === 'admin'`) can access it through REST/GraphQL/admin (the local API bypasses access control as usual). See [WEBPUSH.md](./WEBPUSH.md).
 
 ## API Usage
 
@@ -267,6 +267,17 @@ The plugin includes optional web push notifications support for PWA and mobile b
 ## TypeScript Support
 
 The plugin includes full TypeScript support. Types are automatically generated based on your configuration.
+
+## Upgrade Notes
+
+### Unreleased: `push-subscriptions` is always registered
+
+The `push-subscriptions` collection used to be added only when `webPush.enabled` was true. It is now always added (see above), so after upgrading:
+
+- **Postgres / SQLite:** if you never enabled web push, your database gains a new `push_subscriptions` table (plus one for its hasMany `channels` select). Create and run a migration (`payload migrate:create`, then `payload migrate`) before deploying, or let `push: true` create it in development.
+- **MongoDB:** nothing to do; the collection is created on first write.
+- **Types:** run `payload generate:types` once; `push-subscriptions` now appears in the generated types regardless of VAPID configuration.
+- While web push is disabled, the collection is admin-only, so it adds no new access for regular users.
 
 ## License
 
