@@ -96,23 +96,30 @@ notificationsPlugin({
 
 ## Anonymous Notifications Support
 
-For scenarios where you need to send notifications to anonymous users or have custom recipient logic (e.g., notifications based on email addresses, phone numbers, or custom identifiers), you can use the `findSubscriptions` hook combined with custom fields.
+For scenarios where you need to send notifications to anonymous users or have custom recipient logic (e.g., notifications based on email addresses, phone numbers, or custom identifiers), you can use the `findSubscriptions` hook combined with a custom field added via `collectionOverrides`.
 
 ### Example: Email-based notifications
 
 ```typescript
 notificationsPlugin({
-  // Add custom email field to notifications collection
-  fields: [
-    {
-      name: 'recipientEmail',
-      type: 'email',
-      label: 'Recipient Email',
-      admin: {
-        description: 'Email address of the notification recipient',
-      },
-    }
-  ],
+  channels: [{ id: 'default', name: 'Default' }],
+  // Add custom email field to the notifications collection
+  collectionOverrides: {
+    notifications: (config) => ({
+      ...config,
+      fields: [
+        ...config.fields,
+        {
+          name: 'recipientEmail',
+          type: 'email',
+          label: 'Recipient Email',
+          admin: {
+            description: 'Email address of the notification recipient',
+          },
+        }
+      ]
+    })
+  },
   webPush: {
     enabled: true,
     autoPush: true,
@@ -152,16 +159,23 @@ notificationsPlugin({
 
 ```typescript
 notificationsPlugin({
-  fields: [
-    {
-      name: 'recipientPhone',
-      type: 'text',
-      label: 'Recipient Phone',
-      admin: {
-        description: 'Phone number of the notification recipient',
-      },
-    }
-  ],
+  channels: [{ id: 'default', name: 'Default' }],
+  collectionOverrides: {
+    notifications: (config) => ({
+      ...config,
+      fields: [
+        ...config.fields,
+        {
+          name: 'recipientPhone',
+          type: 'text',
+          label: 'Recipient Phone',
+          admin: {
+            description: 'Phone number of the notification recipient',
+          },
+        }
+      ]
+    })
+  },
   webPush: {
     enabled: true,
     autoPush: true,
@@ -199,7 +213,7 @@ notificationsPlugin({
 
 **Key Points:**
 - The default `recipient` field remains a user relationship for standard notifications
-- Add custom recipient fields via the `fields` option for your specific use case
+- Add custom recipient fields via `collectionOverrides.notifications` for your specific use case
 - Use the `findSubscriptions` hook to implement custom subscription lookup logic
 - The hook receives the full notification document and payload instance
 - Return an array of push subscription documents that should receive the notification
@@ -221,7 +235,7 @@ function NotificationSettings() {
     permission,
     subscribe,
     unsubscribe
-  } = usePushNotifications(process.env.NEXT_PUBLIC_VAPID_KEY)
+  } = usePushNotifications(process.env.NEXT_PUBLIC_VAPID_KEY, ['default'])
 
   if (!isSupported) return <div>Push notifications not supported</div>
 
@@ -247,8 +261,8 @@ import { ClientPushManager } from '@xtr-dev/payload-notifications/client'
 
 const pushManager = new ClientPushManager('your-vapid-public-key')
 
-// Subscribe to notifications
-await pushManager.subscribe()
+// Subscribe to notifications (channel ids must match the plugin's configured channels)
+await pushManager.subscribe(['default'])
 
 // Check subscription status
 const isSubscribed = await pushManager.isSubscribed()
@@ -259,19 +273,41 @@ await pushManager.unsubscribe()
 
 ## Service Worker Setup
 
-Generate a service worker file automatically:
+The package ships a ready-to-serve service worker at `@xtr-dev/payload-notifications/sw.js` (`dist/sw.js`). It is plain JavaScript and a classic (non-module) script, so you can serve it unedited and register it with `navigator.serviceWorker.register('/sw.js')`. Copy it into your public folder, for example from a `postinstall` or build step:
 
-```bash
-npx @xtr-dev/payload-notifications generate-sw
+```js
+// scripts/copy-sw.mjs
+import { copyFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
+
+const require = createRequire(import.meta.url)
+copyFileSync(require.resolve('@xtr-dev/payload-notifications/sw.js'), 'public/sw.js')
 ```
 
-This will create a `/public/sw.js` file with the complete service worker template that handles:
+The same code is also exported as the `serviceWorkerCode` string from `/client`, if you prefer to write the file yourself (`writeFileSync('public/sw.js', serviceWorkerCode)`).
+
+### Icon and badge
+
+The worker shows the `icon` and `badge` from the push payload (set them in `transformNotification`). For a push whose payload has none, you can set defaults with query parameters on the registration URL — no need to edit the file:
+
+```typescript
+navigator.serviceWorker.register('/sw.js?icon=/icons/icon-192.png&badge=/icons/badge-72.png')
+
+// or, with the client push manager:
+new ClientPushManager(vapidPublicKey, {
+  serviceWorkerPath: '/sw.js?icon=/icons/icon-192.png&badge=/icons/badge-72.png',
+})
+```
+
+Without either, the notification is shown without an icon or badge; the worker itself no longer hardcodes `/icon-192x192.png` and `/badge-72x72.png`. Note that pushes sent by the plugin (`autoPush`, `WebPushManager.sendToRecipient`) still fill in an icon and badge server-side when `transformNotification` returns none, so for those, set `icon`/`badge` in `transformNotification`; the query parameters apply to pushes whose payload really has none.
+
+The worker handles:
 
 - Push notification events
 - Notification click handling
 - Service worker lifecycle management
 - Error handling and fallbacks
-- Notification tracking and analytics
+- Notification close tracking (fetches `/api/push-notifications/track`, which this plugin does not implement — remove that handler or implement the route yourself if you don't want a 404 on every dismissal)
 
 **Important Notes:**
 - The service worker file **must** be placed at `/public/sw.js` in Next.js projects
@@ -305,14 +341,13 @@ await pushManager.sendToUser(
 
 ## API Endpoints
 
-The plugin automatically creates these endpoints when web push is enabled:
+The plugin automatically creates these endpoints when web push is enabled. (The `push-subscriptions` collection itself is always registered, so `payload generate:types` produces the same types with or without VAPID keys; only these endpoints and the sending of pushes depend on `webPush.enabled`.)
 
 - `POST /api/push-notifications/subscribe` - Subscribe to push notifications ⚠️ **Requires authentication**
 - `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
 - `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
-- `POST /api/push-notifications/send` - Send notification to user ⚠️ **Requires authentication**
-- `POST /api/push-notifications/test` - Send test notification ⚠️ **Admin only**
-- `POST /api/push-notifications/track` - Track notification events
+
+There are no `/send`, `/test`, or `/track` routes. Sending is done server-side by calling `WebPushManager` directly (see above), either from the `autoPush` hook or your own code — there is no HTTP endpoint for it.
 
 ## Integration with Notifications Collection
 
@@ -326,7 +361,7 @@ const notification = await payload.create({
     title: 'New Message',
     message: [{ children: [{ text: 'You have a new message!' }] }],
     recipient: userId,
-    attachments: { message: messageId }
+    channel: 'default'
   }
 })
 
