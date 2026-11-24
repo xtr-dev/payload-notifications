@@ -1,7 +1,10 @@
 import { describe, expect, test } from 'vitest'
 import { createPushSubscriptionsCollection } from './push-subscriptions'
 
-const pluginOptions = { channels: [] } as any
+// These tests cover the owner-scoped access that applies while web push is
+// enabled; with push disabled the collection is admin-only (covered in
+// src/index.pushSubscriptions.spec.ts).
+const pluginOptions = { channels: [], webPush: { enabled: true } } as any
 
 function collectionAccess() {
   const collection = createPushSubscriptionsCollection(pluginOptions)

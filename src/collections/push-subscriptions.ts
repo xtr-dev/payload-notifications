@@ -6,22 +6,38 @@ import type { NotificationsPluginOptions } from '../types.js'
  * Each user can have multiple subscriptions (different devices/browsers)
  */
 export function createPushSubscriptionsCollection(options: NotificationsPluginOptions): CollectionConfig {
-  // Scopes read/update/delete to the subscription's own user, so one authenticated
-  // user can't read or modify another user's endpoint/keys via the REST/GraphQL API
-  // directly (bypassing the ownership check in the /unsubscribe endpoint). Admins
-  // keep full access, matching the convention in the notifications collection.
+  // The collection is registered even when web push is disabled, so the
+  // generated types and schema stay stable. A host that never enabled push
+  // should not get a writable REST/GraphQL surface it did not ask for, so in
+  // that case only admins (the same `role === 'admin'` check the
+  // notifications collection uses for delete) can access it. The local API
+  // bypasses access control and keeps working either way.
+  const isAdmin = ({ req }: { req: any }) => Boolean(req.user?.role === 'admin')
+
+  // With push enabled, read/update/delete are scoped to the subscription's own
+  // user, so one authenticated user can't read or modify another user's
+  // endpoint/keys via the REST/GraphQL API directly (bypassing the ownership
+  // check in the /unsubscribe endpoint). Admins keep full access, matching the
+  // convention in the notifications collection.
   const ownRecordOrAdmin = ({ req }: { req: any }) => {
     if (!req.user) return false
     if (req.user.role === 'admin') return true
     return { user: { equals: req.user.id } }
   }
 
-  const access: CollectionConfig['access'] = {
-    read: ownRecordOrAdmin,
-    create: ({ req }: { req: any }) => Boolean(req.user),
-    update: ownRecordOrAdmin,
-    delete: ownRecordOrAdmin,
-  }
+  const access: CollectionConfig['access'] = options.webPush?.enabled
+    ? {
+        create: ({ req }: { req: any }) => Boolean(req.user),
+        delete: ownRecordOrAdmin,
+        read: ownRecordOrAdmin,
+        update: ownRecordOrAdmin,
+      }
+    : {
+        create: isAdmin,
+        delete: isAdmin,
+        read: isAdmin,
+        update: isAdmin,
+      }
 
   const config: CollectionConfig = {
     slug: 'push-subscriptions',

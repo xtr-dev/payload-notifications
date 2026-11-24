@@ -28,7 +28,7 @@ src/
     └── rsc.ts                       # Server-only web push exports
 ```
 
-`src/index.ts` always adds the notifications collection. When `webPush.enabled` is true, it also adds the push-subscriptions collection and push notification endpoints. The notifications collection can additionally send a push after creation when `webPush.autoPush` is true.
+`src/index.ts` always adds the notifications and push-subscriptions collections, so the generated types and database schema are the same whether or not VAPID keys are configured. When `webPush.enabled` is true, it also adds the push notification endpoints. The notifications collection can additionally send a push after creation when `webPush.autoPush` is true.
 
 ## Development Guidelines
 
