@@ -307,7 +307,7 @@ The worker handles:
 - Notification click handling
 - Service worker lifecycle management
 - Error handling and fallbacks
-- Notification close tracking (fetches `/api/push-notifications/track`, which this plugin does not implement — remove that handler or implement the route yourself if you don't want a 404 on every dismissal)
+- Notification close tracking (posts to `/api/push-notifications/track`, which the plugin registers when `webPush.enabled`; the endpoint validates and logs the event)
 
 **Important Notes:**
 - The service worker file **must** be placed at `/public/sw.js` in Next.js projects
@@ -346,8 +346,9 @@ The plugin automatically creates these endpoints when web push is enabled. (The 
 - `POST /api/push-notifications/subscribe` - Subscribe to push notifications ⚠️ **Requires authentication**
 - `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
 - `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
+- `POST /api/push-notifications/track` - Track notification events (called by the generated service worker)
 
-There are no `/send`, `/test`, or `/track` routes. Sending is done server-side by calling `WebPushManager` directly (see above), either from the `autoPush` hook or your own code — there is no HTTP endpoint for it.
+There is no HTTP endpoint for sending a push notification. Sends happen server-side, either automatically via `autoPush` on the notifications collection or by calling `WebPushManager.sendToUser()` directly, as shown above.
 
 ## Integration with Notifications Collection
 

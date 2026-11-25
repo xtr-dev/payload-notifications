@@ -218,3 +218,48 @@ describe('push notification subscribe endpoint', () => {
     expect(await response.json()).toEqual({ success: true })
   })
 })
+
+function trackHandler() {
+  const endpoint = createPushNotificationEndpoints(pluginOptions)
+    .find(({ path }) => path === '/push-notifications/track')
+
+  if (!endpoint) throw new Error('Track endpoint was not registered')
+  return endpoint.handler
+}
+
+function trackRequest(body: unknown): any {
+  return { json: async () => body, payload: {} }
+}
+
+describe('push notification track endpoint', () => {
+  test('is registered when web push is enabled', () => {
+    const paths = createPushNotificationEndpoints(pluginOptions).map(({ path }) => path)
+    expect(paths).toContain('/push-notifications/track')
+  })
+
+  test('is not registered when web push is disabled', () => {
+    const paths = createPushNotificationEndpoints({ channels: [] }).map(({ path }) => path)
+    expect(paths).not.toContain('/push-notifications/track')
+  })
+
+  test('accepts a tracking event and responds with success', async () => {
+    const response = await trackHandler()(
+      trackRequest({ action: 'close', notificationId: '123', timestamp: 1700000000000 }),
+    )
+
+    expect(response.status).toBe(200)
+    expect(await response.json()).toEqual({ success: true })
+  })
+
+  test('rejects a body missing the action field', async () => {
+    const response = await trackHandler()(trackRequest({ notificationId: '123' }))
+
+    expect(response.status).toBe(400)
+  })
+
+  test('rejects a missing body', async () => {
+    const response = await trackHandler()(trackRequest(undefined))
+
+    expect(response.status).toBe(400)
+  })
+})
