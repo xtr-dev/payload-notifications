@@ -273,23 +273,41 @@ await pushManager.unsubscribe()
 
 ## Service Worker Setup
 
-The package has no CLI — write the exported service worker template to a file yourself. `serviceWorkerCode` is a string export from `/client` containing the complete template:
+The package ships a ready-to-serve service worker at `@xtr-dev/payload-notifications/sw.js` (`dist/sw.js`). It is plain JavaScript and a classic (non-module) script, so you can serve it unedited and register it with `navigator.serviceWorker.register('/sw.js')`. Copy it into your public folder, for example from a `postinstall` or build step:
 
-```typescript
-// scripts/generate-sw.ts
-import { writeFileSync } from 'fs'
-import { serviceWorkerCode } from '@xtr-dev/payload-notifications/client'
+```js
+// scripts/copy-sw.mjs
+import { copyFileSync } from 'node:fs'
+import { createRequire } from 'node:module'
 
-writeFileSync('public/sw.js', serviceWorkerCode)
+const require = createRequire(import.meta.url)
+copyFileSync(require.resolve('@xtr-dev/payload-notifications/sw.js'), 'public/sw.js')
 ```
 
-Run it with `tsx scripts/generate-sw.ts` (or any TypeScript runner) whenever the template changes. The generated file handles:
+The same code is also exported as the `serviceWorkerCode` string from `/client`, if you prefer to write the file yourself (`writeFileSync('public/sw.js', serviceWorkerCode)`).
+
+### Icon and badge
+
+The worker shows the `icon` and `badge` from the push payload (set them in `transformNotification`). For a push whose payload has none, you can set defaults with query parameters on the registration URL — no need to edit the file:
+
+```typescript
+navigator.serviceWorker.register('/sw.js?icon=/icons/icon-192.png&badge=/icons/badge-72.png')
+
+// or, with the client push manager:
+new ClientPushManager(vapidPublicKey, {
+  serviceWorkerPath: '/sw.js?icon=/icons/icon-192.png&badge=/icons/badge-72.png',
+})
+```
+
+Without either, the notification is shown without an icon or badge; the worker itself no longer hardcodes `/icon-192x192.png` and `/badge-72x72.png`. Note that pushes sent by the plugin (`autoPush`, `WebPushManager.sendToRecipient`) still fill in an icon and badge server-side when `transformNotification` returns none, so for those, set `icon`/`badge` in `transformNotification`; the query parameters apply to pushes whose payload really has none.
+
+The worker handles:
 
 - Push notification events
 - Notification click handling
 - Service worker lifecycle management
 - Error handling and fallbacks
-- Notification close tracking (fetches `/api/push-notifications/track`, which this plugin does not implement — remove that handler or implement the route yourself if you don't want a 404 on every dismissal)
+- Notification close tracking (posts to `/api/push-notifications/track`, which the plugin registers when `webPush.enabled`; the endpoint validates and logs the event)
 
 **Important Notes:**
 - The service worker file **must** be placed at `/public/sw.js` in Next.js projects
@@ -323,13 +341,14 @@ await pushManager.sendToUser(
 
 ## API Endpoints
 
-The plugin automatically creates these endpoints when web push is enabled:
+The plugin automatically creates these endpoints when web push is enabled. (The `push-subscriptions` collection itself is always registered, so `payload generate:types` produces the same types with or without VAPID keys; only these endpoints and the sending of pushes depend on `webPush.enabled`.)
 
 - `POST /api/push-notifications/subscribe` - Subscribe to push notifications ⚠️ **Requires authentication**
 - `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
 - `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
+- `POST /api/push-notifications/track` - Track notification events (called by the generated service worker)
 
-There are no `/send`, `/test`, or `/track` routes. Sending is done server-side by calling `WebPushManager` directly (see above), either from the `autoPush` hook or your own code — there is no HTTP endpoint for it.
+There is no HTTP endpoint for sending a push notification. Sends happen server-side, either automatically via `autoPush` on the notifications collection or by calling `WebPushManager.sendToUser()` directly, as shown above.
 
 ## Integration with Notifications Collection
 

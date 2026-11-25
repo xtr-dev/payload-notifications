@@ -1,5 +1,5 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { WebPushManager } from '../utils/webPush.js'
+import { PushSubscriptionOwnershipError, WebPushManager } from '../utils/webPush.js'
 import type { NotificationsPluginOptions } from '../types.js'
 
 /**
@@ -44,6 +44,9 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
 
           return Response.json({ success: true })
         } catch (error: any) {
+          if (error instanceof PushSubscriptionOwnershipError) {
+            return Response.json({ error: error.message }, { status: 403 })
+          }
           console.error('Push subscription error:', error)
           return Response.json(
             { error: 'Failed to subscribe to push notifications' },
@@ -105,6 +108,38 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           )
         }
       },
+    },
+
+    // Track notification events reported by the service worker (e.g. notificationclose)
+    {
+      handler: async (req: PayloadRequest) => {
+        try {
+          const body = await req.json?.()
+          if (!body || !(typeof body === 'object' && 'action' in body)) {
+            return Response.json({ error: 'Invalid request body' }, { status: 400 })
+          }
+
+          const { action, notificationId, timestamp } = body as {
+            action: string
+            notificationId?: number | string
+            timestamp?: number
+          }
+
+          console.log(
+            `[Notifications Plugin] Push notification event: ${action}${notificationId ? ` (notification ${notificationId})` : ''}${timestamp ? ` at ${timestamp}` : ''}`
+          )
+
+          return Response.json({ success: true })
+        } catch (error: any) {
+          console.error('Push tracking error:', error)
+          return Response.json(
+            { error: 'Failed to track push notification event' },
+            { status: 500 }
+          )
+        }
+      },
+      method: 'post',
+      path: '/push-notifications/track',
     },
   ]
 }

@@ -10,12 +10,33 @@ import { ClientPushManager } from '../client/push-manager.js'
 export { ClientPushManager }
 export type { PushSubscriptionData } from '../client/push-manager.js'
 
-// Service worker utilities
+/**
+ * Source of the push service worker, as a classic (non-module) plain-JS script.
+ *
+ * The build also writes this exact code to `dist/sw.js` (exported as
+ * `@xtr-dev/payload-notifications/sw.js`), so hosts can serve or copy that file
+ * unedited instead of writing this string to disk themselves.
+ *
+ * The notification icon and badge come from the push payload. For pushes whose
+ * payload has none, defaults can be passed as query parameters on the
+ * registration URL, e.g. `navigator.serviceWorker.register('/sw.js?icon=/icon.png&badge=/badge.png')`
+ * (or `new ClientPushManager(key, { serviceWorkerPath: '/sw.js?icon=/icon.png' })`).
+ * Without them such a notification is shown without an icon or badge.
+ */
 export const serviceWorkerCode = `
 /**
- * Service Worker for Web Push Notifications
- * This code should be served as /sw.js or similar
+ * Service Worker for Web Push Notifications (@xtr-dev/payload-notifications)
+ * Serve this file as /sw.js or similar. It is a classic script: register it
+ * with navigator.serviceWorker.register('/sw.js'), not { type: 'module' }.
+ *
+ * Optional query parameters on the registration URL set the icon and badge
+ * used when a push payload carries none:
+ *   navigator.serviceWorker.register('/sw.js?icon=/icon.png&badge=/badge.png')
  */
+
+var workerParams = new URL(self.location.href).searchParams
+var defaultIcon = workerParams.get('icon') || undefined
+var defaultBadge = workerParams.get('badge') || undefined
 
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker')
@@ -37,8 +58,8 @@ self.addEventListener('push', (event) => {
     event.waitUntil(
       self.registration.showNotification(title, {
         body,
-        icon: options.icon || '/icon-192x192.png',
-        badge: options.badge || '/badge-72x72.png',
+        icon: options.icon || defaultIcon,
+        badge: options.badge || defaultBadge,
         image: options.image,
         data: options.data,
         actions: options.actions,

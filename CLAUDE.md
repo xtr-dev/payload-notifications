@@ -28,7 +28,7 @@ src/
     └── rsc.ts                       # Server-only web push exports
 ```
 
-`src/index.ts` always adds the notifications collection. When `webPush.enabled` is true, it also adds the push-subscriptions collection and push notification endpoints. The notifications collection can additionally send a push after creation when `webPush.autoPush` is true.
+`src/index.ts` always adds the notifications and push-subscriptions collections, so the generated types and database schema are the same whether or not VAPID keys are configured. When `webPush.enabled` is true, it also adds the push notification endpoints. The notifications collection can additionally send a push after creation when `webPush.autoPush` is true.
 
 ## Development Guidelines
 
@@ -66,6 +66,7 @@ The notifications collection includes:
 - Generate declaration files (.d.ts)
 - Bundle as ES modules only (`.swcrc` sets `module.type: "es6"`)
 - Include source maps for debugging
+- `build:sw` (`scripts/write-service-worker.mjs`) writes the `serviceWorkerCode` string from `src/exports/client.ts` to `dist/sw.js` (exported as `./sw.js`) and `dist/client/service-worker.js`, and fails if it is not a valid classic (non-module) script. Keep the service worker plain JavaScript: no `import`/`export`, no TypeScript syntax
 
 ## Plugin Registration
 The plugin should be registered in PayloadCMS using the standard plugin pattern:
