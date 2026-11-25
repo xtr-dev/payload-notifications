@@ -1,56 +1,22 @@
-name: Claude Code
+name: Claude
 
 on:
   issue_comment:
     types: [created]
   pull_request_review_comment:
     types: [created]
-  issues:
-    types: [opened, assigned]
   pull_request_review:
     types: [submitted]
+  issues:
+    types: [opened, assigned]
 
 jobs:
   claude:
-    # Write on contents/pull-requests/issues is required so @claude can push
-    # commits and comment (the point of this job; unlike claude-code-review.yml).
-    # OWNER/MEMBER/COLLABORATOR is the actor gate that keeps that write token
-    # and CLAUDE_CODE_OAUTH_TOKEN from being issued to an arbitrary mention —
-    # the action's own write-access check runs only after the job has started.
-    if: |
-      (github.event_name == 'issue_comment' && contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
-      (github.event_name == 'pull_request_review_comment' && contains(github.event.comment.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.comment.author_association)) ||
-      (github.event_name == 'pull_request_review' && contains(github.event.review.body, '@claude') &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.review.author_association)) ||
-      (github.event_name == 'issues' && (contains(github.event.issue.body, '@claude') || contains(github.event.issue.title, '@claude')) &&
-        contains(fromJSON('["OWNER","MEMBER","COLLABORATOR"]'), github.event.issue.author_association))
-    runs-on: ubuntu-latest
-    timeout-minutes: 30
+    uses: xtr-dev/.github/.github/workflows/claude.yml@v1
     permissions:
       contents: write
       pull-requests: write
       issues: write
       id-token: write
-      actions: read # Lets Claude read CI results on PRs
-    steps:
-      - name: Checkout repository
-        uses: actions/checkout@v6
-        with:
-          fetch-depth: 1
-
-      - name: Run Claude Code
-        id: claude
-        uses: anthropics/claude-code-action@v1
-        with:
-          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
-
-          # CLI arguments for Claude Code. --model pins the current Sonnet alias
-          # so @claude requests do not depend on a retired dated model snapshot.
-          # --allowedTools pre-approves the project's build, lint and test
-          # commands so Claude can verify its own changes. (additional_permissions
-          # is not used here: v1 dropped that input in favor of the job-level
-          # `actions: read` permission set above.)
-          claude_args: |
-            --model sonnet --allowedTools "Bash(pnpm install),Bash(pnpm build),Bash(pnpm build:*),Bash(pnpm lint),Bash(pnpm lint:*),Bash(pnpm test),Bash(pnpm test:*)"
+      actions: read
+    secrets: inherit
