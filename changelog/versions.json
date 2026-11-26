@@ -1,0 +1,487 @@
+{
+  "$schema": "https://unpkg.com/@xtr-dev/changelog/schema/versions.schema.json",
+  "schemaVersion": 2,
+  "versions": [
+    {
+      "version": "0.2.0",
+      "date": "2026-11-26",
+      "commit": "936ec9b",
+      "breaking": true,
+      "groups": {
+        "breaking": [
+          {
+            "type": "fix",
+            "scope": "push",
+            "description": "link default pushes to a configurable URL and stop referencing icons the package doesn't ship (#41)",
+            "commit": "f116ef2",
+            "hash": "f116ef26bc3a50bd245a53c5ae26b0b7fe0409f3",
+            "author": "Bas",
+            "breaking": true,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "security",
+            "scope": "access",
+            "description": "store an explicit audience, scope read/create access, and track broadcast reads per user (#40)",
+            "commit": "ed1a13c",
+            "hash": "ed1a13c165ef9b2920c67f45a50c32d76329fe07",
+            "author": "Bas",
+            "breaking": true,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          }
+        ],
+        "fixes": [
+          {
+            "type": "fix",
+            "scope": "push",
+            "description": "extract text from Lexical rich text for the default push body (#42)",
+            "commit": "936ec9b",
+            "hash": "936ec9bbf3a007f1acd2f36661066f6fddbf8dc0",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": "push",
+            "description": "link default pushes to a configurable URL and stop referencing icons the package doesn't ship (#41)",
+            "commit": "f116ef2",
+            "hash": "f116ef26bc3a50bd245a53c5ae26b0b7fe0409f3",
+            "author": "Bas",
+            "breaking": true,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "security",
+            "scope": "access",
+            "description": "store an explicit audience, scope read/create access, and track broadcast reads per user (#40)",
+            "commit": "ed1a13c",
+            "hash": "ed1a13c165ef9b2920c67f45a50c32d76329fe07",
+            "author": "Bas",
+            "breaking": true,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
+      "version": "0.1.0",
+      "date": "2026-11-25",
+      "commit": "8aacdea",
+      "breaking": true,
+      "groups": {
+        "breaking": [
+          {
+            "type": "security",
+            "scope": "access",
+            "description": "scope notification update access and limit non-admins to read flags (#11)",
+            "commit": "0f77c56",
+            "hash": "0f77c563d1ee557cfb3eac0e082a04eb2d1b6c6f",
+            "author": "XTR Bas",
+            "breaking": true,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "cosmictoast.691b <cosmictoast.691b@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Sonnet 5 <noreply@anthropic.com>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "bouncygoblin.c255 <bouncygoblin.c255@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "moistgoose404.dc52 <moistgoose404.dc52@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "lazytomato77.357c <lazytomato77.357c@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Bas van den Aakster <bvdaakster@gmail.com>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Bas <30904649+bvdaakster@users.noreply.github.com>"
+              }
+            ]
+          }
+        ],
+        "fixes": [
+          {
+            "type": "security",
+            "scope": "access",
+            "description": "scope notification update access and limit non-admins to read flags (#11)",
+            "commit": "0f77c56",
+            "hash": "0f77c563d1ee557cfb3eac0e082a04eb2d1b6c6f",
+            "author": "XTR Bas",
+            "breaking": true,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "cosmictoast.691b <cosmictoast.691b@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Sonnet 5 <noreply@anthropic.com>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "bouncygoblin.c255 <bouncygoblin.c255@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "moistgoose404.dc52 <moistgoose404.dc52@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "lazytomato77.357c <lazytomato77.357c@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Bas van den Aakster <bvdaakster@gmail.com>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Bas <30904649+bvdaakster@users.noreply.github.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": "push",
+            "description": "register the /track endpoint and stop documenting /send and /test (#17)",
+            "commit": "324151c",
+            "hash": "324151c37ab7cf45ca9c194b9ae75a23e7dea061",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "moistotter.52c1 <moistotter.52c1@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "make push-subscriptions admin-only while web push is disabled",
+            "commit": "daed0e9",
+            "hash": "daed0e90ba8135139b748d4f9c93c4d42a818eb5",
+            "author": "Bas van den Aakster",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-Authored-By",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "ship a classic plain-JS service worker with configurable icon/badge",
+            "commit": "31dd1e0",
+            "hash": "31dd1e0bde1dc1697ff975f09e9b35653c0e9d18",
+            "author": "Bas van den Aakster",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-Authored-By",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "always register the push-subscriptions collection",
+            "commit": "6b2a869",
+            "hash": "6b2a869d5783f143593477968620ecfbabf9b644",
+            "author": "Bas van den Aakster",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-Authored-By",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "reject subscribe when the endpoint belongs to another user",
+            "commit": "2e5c642",
+            "hash": "2e5c6428a1fd2536c10c14a76224efc6b03dec72",
+            "author": "moistgoose.744b",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "bind push-subscription user to requester; bump to 0.0.6",
+            "commit": "43afe11",
+            "hash": "43afe11781fd3660f27a33934db026f511da5fc4",
+            "author": "chillpickle.099c",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "scope push-subscriptions read/update/delete access to owner",
+            "commit": "7479377",
+            "hash": "7479377e2319f99fa56a8bca04b6f55b15d96c5d",
+            "author": "frostynoodle.ea5f",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "add NodeNext consumer type-check, fix root-entry extensionless imports",
+            "commit": "90d0fbe",
+            "hash": "90d0fbe68e5fa718831db6fa23e5dcd4de1d12b1",
+            "author": "mimas.016c",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-Authored-By",
+                "text": "Claude Sonnet 5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "wire published-exports/unit tests into CI, fix type-only import extensions",
+            "commit": "3ff443d",
+            "hash": "3ff443d47426a0e03dfeae876819c1e95970c00e",
+            "author": "hadar.8e59",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-Authored-By",
+                "text": "Claude Sonnet 5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "make rsc export ESM-compatible",
+            "commit": "8bda484",
+            "hash": "8bda48489dad03eb974cae12601fd7bc9a382347",
+            "author": "ganymede.a0f0",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "make client hook ESM-compatible",
+            "commit": "160e4ea",
+            "hash": "160e4eac8be69d060bbfcf06bbacde2083503588",
+            "author": "ariel.6a57",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "emit browser-valid service worker code",
+            "commit": "f3462e9",
+            "hash": "f3462e97e7e8644af9a12ad915b4581f22fefa5d",
+            "author": "thuban.132f",
+            "breaking": false,
+            "notes": []
+          }
+        ],
+        "other": [
+          {
+            "type": "ci",
+            "scope": null,
+            "description": "release through the shared workflow with xtr-dev/changelog (#39)",
+            "commit": "8aacdea",
+            "hash": "8aacdea7df9dafb45594ad984026cbba1f45e8e4",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "test",
+            "scope": null,
+            "description": "verify dist/sw.js is a classic worker in test:published-exports",
+            "commit": "f348cd7",
+            "hash": "f348cd736832988100f58bf8062b0abfa845b9b6",
+            "author": "Bas van den Aakster",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-Authored-By",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "ci",
+            "scope": null,
+            "description": "run tests and build on every push to main, not only on a release",
+            "commit": "f722ecf",
+            "hash": "f722ecf03ba81413df438a2f2c1d3b57a3b2264c",
+            "author": "Bas van den Aakster",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-Authored-By",
+                "text": "Claude Opus 5 <noreply@anthropic.com>"
+              },
+              {
+                "title": "Claude-Session",
+                "text": "https://claude.ai/code/session_01Xkr2XhqTxapLYS1mdMf31D"
+              }
+            ]
+          },
+          {
+            "type": "ci",
+            "scope": null,
+            "description": "check the version only when a PR releases",
+            "commit": "cd5487b",
+            "hash": "cd5487bbd8d7eac3f809d7327ad3841ba394b199",
+            "author": "Bas van den Aakster",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-Authored-By",
+                "text": "Claude Opus 5 <noreply@anthropic.com>"
+              },
+              {
+                "title": "Claude-Session",
+                "text": "https://claude.ai/code/session_01Xkr2XhqTxapLYS1mdMf31D"
+              }
+            ]
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "Fix CLAUDE.md build process claim to match ESM-only build",
+            "commit": "8def46f",
+            "hash": "8def46fde60e43a27eac550980987338af0c96cb",
+            "author": "grumpybadger.354e",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "test",
+            "scope": null,
+            "description": "cover unsubscribe endpoint's auth/ownership behavior",
+            "commit": "da55edf",
+            "hash": "da55edf5524ae6325f5fa9b04afb9a85a6fec6fb",
+            "author": "phecda.954d",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "test",
+            "scope": null,
+            "description": "add contract test for serviceWorkerCode classic-script shape",
+            "commit": "fea3557",
+            "hash": "fea35574f5836494e6d807e5e3f9620527eb5c8e",
+            "author": "uranus.f1e8",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "fix unrunnable WEBPUSH/README samples flagged in review",
+            "commit": "8dc1d38",
+            "hash": "8dc1d380222583ea68dca951a279d48e17de723f",
+            "author": "dione.27e6",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "fix basic plugin usage example",
+            "commit": "d04090d",
+            "hash": "d04090d2255f3dad9d723cfc80ac006dce609783",
+            "author": "capella.b2d2",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "fix stale attachments/relationship claims in README, WEBPUSH, dev docs",
+            "commit": "7b683c8",
+            "hash": "7b683c8abc87b42e793fee5f4419483306304fb3",
+            "author": "iapetus.80cc",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "fix remaining stale relationship-system claims in CLAUDE.md",
+            "commit": "36f1828",
+            "hash": "36f1828231b77c8cf1ebb3f45f9cc7a7d417fb93",
+            "author": "europa.40a5",
+            "breaking": false,
+            "notes": []
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "update plugin architecture guide",
+            "commit": "d5837e6",
+            "hash": "d5837e68aa3115cfc615b1aafc636991beeecf0f",
+            "author": "hadar.1402",
+            "breaking": false,
+            "notes": []
+          }
+        ]
+      }
+    }
+  ]
+}

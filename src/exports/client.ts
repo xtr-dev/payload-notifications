@@ -3,30 +3,40 @@
  * Import from '@xtr-dev/payload-notifications/client'
  */
 
-export { ClientPushManager } from '../client/push-manager'
-export type { PushSubscriptionData } from '../client/push-manager'
+import { useEffect, useState } from 'react'
 
-// Service worker utilities
+import { ClientPushManager } from '../client/push-manager.js'
+
+export { ClientPushManager }
+export type { PushSubscriptionData } from '../client/push-manager.js'
+
+/**
+ * Source of the push service worker, as a classic (non-module) plain-JS script.
+ *
+ * The build also writes this exact code to `dist/sw.js` (exported as
+ * `@xtr-dev/payload-notifications/sw.js`), so hosts can serve or copy that file
+ * unedited instead of writing this string to disk themselves.
+ *
+ * The notification icon and badge come from the push payload. For pushes whose
+ * payload has none, defaults can be passed as query parameters on the
+ * registration URL, e.g. `navigator.serviceWorker.register('/sw.js?icon=/icon.png&badge=/badge.png')`
+ * (or `new ClientPushManager(key, { serviceWorkerPath: '/sw.js?icon=/icon.png' })`).
+ * Without them such a notification is shown without an icon or badge.
+ */
 export const serviceWorkerCode = `
 /**
- * Service Worker for Web Push Notifications
- * This code should be served as /sw.js or similar
+ * Service Worker for Web Push Notifications (@xtr-dev/payload-notifications)
+ * Serve this file as /sw.js or similar. It is a classic script: register it
+ * with navigator.serviceWorker.register('/sw.js'), not { type: 'module' }.
+ *
+ * Optional query parameters on the registration URL set the icon and badge
+ * used when a push payload carries none:
+ *   navigator.serviceWorker.register('/sw.js?icon=/icon.png&badge=/badge.png')
  */
 
-declare const self: ServiceWorkerGlobalScope
-
-interface NotificationPayload {
-  title: string
-  body: string
-  icon?: string
-  badge?: string
-  image?: string
-  data?: any
-  actions?: Array<{ action: string; title: string; icon?: string }>
-  tag?: string
-  requireInteraction?: boolean
-  timestamp: number
-}
+var workerParams = new URL(self.location.href).searchParams
+var defaultIcon = workerParams.get('icon') || undefined
+var defaultBadge = workerParams.get('badge') || undefined
 
 self.addEventListener('install', (event) => {
   console.log('[SW] Installing service worker')
@@ -42,14 +52,14 @@ self.addEventListener('push', (event) => {
   if (!event.data) return
 
   try {
-    const payload: NotificationPayload = event.data.json()
+    const payload = event.data.json()
     const { title, body, ...options } = payload
 
     event.waitUntil(
       self.registration.showNotification(title, {
         body,
-        icon: options.icon || '/icon-192x192.png',
-        badge: options.badge || '/badge-72x72.png',
+        icon: options.icon || defaultIcon,
+        badge: options.badge || defaultBadge,
         image: options.image,
         data: options.data,
         actions: options.actions,
@@ -110,44 +120,18 @@ self.addEventListener('notificationclose', (event) => {
     }).catch(console.error)
   }
 })
-
-export {}
 `
-
-// React types (conditional)
-interface ReactHooks {
-  useState: any
-  useEffect: any
-}
-
-// Try to import React hooks
-let ReactHooks: ReactHooks | null = null
-try {
-  const React = require('react')
-  ReactHooks = {
-    useState: React.useState,
-    useEffect: React.useEffect
-  }
-} catch {
-  // React not available
-}
 
 /**
  * React hook for managing push notifications
- * Only works if React is available in the environment
  */
-export function usePushNotifications(vapidPublicKey: string) {
-  if (!ReactHooks) {
-    throw new Error('React is not available. Make sure React is installed to use this hook.')
-  }
+export function usePushNotifications(vapidPublicKey: string, channels: string[]) {
+  const [isSupported, setIsSupported] = useState(false)
+  const [isSubscribed, setIsSubscribed] = useState(false)
+  const [permission, setPermission] = useState<NotificationPermission>('default')
+  const [pushManager, setPushManager] = useState<ClientPushManager | null>(null)
 
-  const [isSupported, setIsSupported] = ReactHooks.useState(false)
-  const [isSubscribed, setIsSubscribed] = ReactHooks.useState(false)
-  const [permission, setPermission] = ReactHooks.useState('default')
-  const [pushManager, setPushManager] = ReactHooks.useState(null)
-
-  ReactHooks.useEffect(() => {
-    const { ClientPushManager } = require('../client/push-manager')
+  useEffect(() => {
     const manager = new ClientPushManager(vapidPublicKey)
     setPushManager(manager)
     setIsSupported(manager.isSupported())
@@ -162,7 +146,7 @@ export function usePushNotifications(vapidPublicKey: string) {
 
   const subscribe = async () => {
     if (!pushManager) throw new Error('Push manager not initialized')
-    await pushManager.subscribe()
+    await pushManager.subscribe(channels)
     setIsSubscribed(true)
     setPermission('granted')
   }
