@@ -17,7 +17,7 @@ The seed creates a few notifications on the `general`, `orders` and `products` c
 
 ## Web push
 
-Generate keys with `npx web-push generate-vapid-keys` and set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` in `dev/.env`. The config enables `webPush` with `autoPush` and a custom `transformNotification` that links to the admin panel. The worker served at `/sw.js` is `dev/public/sw.js`, a local copy; the published one is generated from `serviceWorkerCode` in `src/exports/client.ts`.
+Generate keys with `npx web-push generate-vapid-keys` and set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` in `dev/.env`. The config enables `webPush` with `autoPush` and `notificationUrl`, so the default transformer's pushes link to the notification in the admin panel. The worker served at `/sw.js` is `dev/public/sw.js`, a local copy; the published one is generated from `serviceWorkerCode` in `src/exports/client.ts`.
 
 To try it, open `/demo`, enable notifications, then create a notification in the admin with the subscribed user as recipient.
 

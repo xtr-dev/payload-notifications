@@ -138,6 +138,11 @@ describe('notifications collection', () => {
       })
 
       expect(sendNotification).toHaveBeenCalledOnce()
+      // The dev config's push body is the Lexical message text, and its click
+      // target is the notification's admin page.
+      const pushed = JSON.parse(String(sendNotification.mock.calls[0][1]))
+      expect(pushed.body).toBe('Created by the integration test.')
+      expect(pushed.data.url).toBe(`/admin/collections/notifications/${created.id}`)
       const fetched = await payload.findByID({
         id: created.id,
         collection: 'notifications',

@@ -94,44 +94,9 @@ export default buildConfig({
         vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || 'your-private-key-here',
         vapidPublicKey: process.env.VAPID_PUBLIC_KEY || 'BMrF5MbHcaEo6w4lPjG9m3BvONvFPfz7jLJ9t0F9yJGzSI3ZUHQj9fNUP7w2D8h1kI4x3YzJ1a4f0nS5g6t2F9L',
         vapidSubject: 'mailto:test@example.com',
-        // Custom notification transformer for demo
-        transformNotification: (notification: any) => {
-          const title = notification.title || 'New Notification'
-
-          // Extract text from rich text message
-          let body = 'You have a new notification'
-          if (notification.message && Array.isArray(notification.message)) {
-            const textParts: string[] = []
-            notification.message.forEach((block: any) => {
-              if (block.children && Array.isArray(block.children)) {
-                block.children.forEach((child: any) => {
-                  if (child.text) {textParts.push(child.text)}
-                })
-              }
-            })
-            if (textParts.length > 0) {
-              body = textParts.join(' ').substring(0, 120) + (textParts.join(' ').length > 120 ? '...' : '')
-            }
-          }
-
-          return {
-            actions: [
-              { action: 'view', icon: '/icons/view.png', title: 'View in Admin' },
-              { action: 'dismiss', icon: '/icons/dismiss.png', title: 'Dismiss' }
-            ],
-            badge: '/icons/notification-badge.png',
-            body,
-            data: {
-              createdAt: notification.createdAt,
-              notificationId: notification.id,
-              url: `/admin/collections/notifications/${notification.id}`,
-            },
-            icon: '/icons/notification-icon.png',
-            requireInteraction: false,
-            tag: `notification-${notification.id}`,
-            title: `🔔 ${title}`,
-          }
-        }
+        // The default transformer extracts the message text (Lexical or Slate)
+        // and adds the close-tracking data; only the click target is customized.
+        notificationUrl: (notification: any) => `/admin/collections/notifications/${notification.id}`,
       }
     }),
   ],
