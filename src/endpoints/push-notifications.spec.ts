@@ -227,8 +227,8 @@ function trackHandler() {
   return endpoint.handler
 }
 
-function trackRequest(body: unknown): any {
-  return { json: async () => body, payload: {} }
+function trackRequest(body: unknown, user: unknown = { id: 'user-1' }): any {
+  return { json: async () => body, payload: {}, user }
 }
 
 describe('push notification track endpoint', () => {
@@ -261,5 +261,44 @@ describe('push notification track endpoint', () => {
     const response = await trackHandler()(trackRequest(undefined))
 
     expect(response.status).toBe(400)
+  })
+
+  test('rejects an unauthenticated request', async () => {
+    const response = await trackHandler()(trackRequest({ action: 'close', notificationId: '123' }, null))
+
+    expect(response.status).toBe(401)
+  })
+
+  test('answers malformed JSON with 400 instead of 500', async () => {
+    const request = { json: async () => JSON.parse('{not json'), payload: {}, user: { id: 'user-1' } }
+    const response = await trackHandler()(request as any)
+
+    expect(response.status).toBe(400)
+  })
+
+  test.each([
+    ['a non-string action', { action: 42 }],
+    ['an action with a newline', { action: 'close\nFAKE LOG LINE' }],
+    ['an overlong action', { action: 'a'.repeat(33) }],
+    ['a notificationId with a newline', { action: 'close', notificationId: '1\nFAKE' }],
+    ['an object notificationId', { action: 'close', notificationId: { $ne: null } }],
+    ['a string timestamp', { action: 'close', timestamp: 'yesterday' }],
+    ['an array body', [{ action: 'close' }]],
+  ])('rejects %s', async (_label, body) => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const response = await trackHandler()(trackRequest(body))
+
+    expect(response.status).toBe(400)
+    expect(log).not.toHaveBeenCalled()
+    log.mockRestore()
+  })
+
+  test('accepts a numeric notificationId and logs the event', async () => {
+    const log = vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const response = await trackHandler()(trackRequest({ action: 'close', notificationId: 7, timestamp: 1 }))
+
+    expect(response.status).toBe(200)
+    expect(log).toHaveBeenCalledWith(expect.stringContaining('close (notification 7) at 1'))
+    log.mockRestore()
   })
 })
