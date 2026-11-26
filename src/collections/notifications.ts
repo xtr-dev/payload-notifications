@@ -1,7 +1,15 @@
-import type { CollectionConfig, Field } from 'payload'
-import type { NotificationsPluginOptions } from '../types'
-import { WebPushManager } from '../utils/webPush'
-import { defaultNotificationTransformer } from '../utils/richTextExtractor'
+import type { Access, CollectionConfig, Field, Where } from 'payload'
+import type { NotificationsPluginOptions } from '../types.js'
+import { WebPushManager } from '../utils/webPush.js'
+import { defaultNotificationTransformer } from '../utils/richTextExtractor.js'
+import {
+  applyBroadcastReadState,
+  deriveAudience,
+  markNotificationReadEndpoints,
+} from './notification-audience.js'
+import { NOTIFICATION_READS_SLUG } from './notification-reads.js'
+
+const isAdminUser = (user: any) => Boolean(user?.role === 'admin')
 
 /**
  * Creates the notifications collection configuration
@@ -17,12 +25,39 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     throw new Error('No channels defined for notifications plugin')
   }
 
-  // Default access control - authenticated users can read, admins can manage
+  const adminOnlyFieldUpdate = ({ req }: { req: any }) => isAdminUser(req.user)
+
+  // Members read their own personal notifications and every broadcast. A
+  // broadcast is identified by `audience: 'broadcast'`, never by an empty
+  // recipient: the recipient relationship is set to null when the user is
+  // deleted (ON DELETE SET NULL on SQL adapters), so "no recipient" would turn
+  // a deleted user's personal notifications into broadcasts for everyone.
+  const ownOrBroadcast: Access = ({ req }) => {
+    if (!req.user) return false
+    if (isAdminUser(req.user)) return true
+    const own: Where = { recipient: { equals: req.user.id } }
+    const broadcast: Where = { audience: { equals: 'broadcast' } }
+    return { or: [own, broadcast] }
+  }
+
+  // Members update only their own personal notifications, and field access
+  // limits them to isRead/readAt. A broadcast row is shared by everyone, so its
+  // isRead/readAt cannot be a member's read state; members record broadcast
+  // reads as notification-reads receipts (see POST /:id/read) instead.
+  const ownPersonal: Access = ({ req }) => {
+    if (!req.user) return false
+    if (isAdminUser(req.user)) return true
+    return { recipient: { equals: req.user.id } }
+  }
+
   const access: CollectionConfig['access'] = {
-    read: ({ req }: { req: any }) => Boolean(req.user),
-    create: ({ req }: { req: any }) => Boolean(req.user),
-    update: ({ req }: { req: any }) => Boolean(req.user),
-    delete: ({ req }: { req: any }) => Boolean(req.user?.role === 'admin'),
+    read: ownOrBroadcast,
+    // Notifications are sent by the server (local API, which bypasses access)
+    // or by admins. Letting any signed-in user create them would let one user
+    // send messages to another from the site's own inbox.
+    create: ({ req }: { req: any }) => isAdminUser(req.user),
+    update: ownPersonal,
+    delete: ({ req }: { req: any }) => isAdminUser(req.user),
   }
 
   // Build core fields
@@ -31,6 +66,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       name: 'title',
       type: 'text',
       label: 'Title',
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
       required: true,
       admin: {
         description: 'The notification title that will be displayed to users',
@@ -40,6 +78,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       name: 'message',
       type: 'richText',
       label: 'Message',
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
       required: true,
       admin: {
         description: 'The notification message content',
@@ -50,10 +91,30 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       type: 'relationship',
       relationTo: 'users',
       label: 'Recipient',
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
       required: false,
       admin: {
         description: 'The user who should receive this notification (optional if using custom recipient fields)',
       },
+    },
+    {
+      name: 'audience',
+      type: 'select',
+      label: 'Audience',
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
+      index: true,
+      admin: {
+        description: 'Who can see this notification. Left empty on create, it becomes "Broadcast" when there is no recipient and "Recipient only" otherwise.',
+        position: 'sidebar',
+      },
+      options: [
+        { label: 'Recipient only', value: 'user' },
+        { label: 'Broadcast to everyone', value: 'broadcast' },
+      ],
     },
     {
       name: 'channel',
@@ -63,6 +124,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
         label: channel.name,
         value: channel.id,
       })),
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
       required: false,
       admin: {
         description: 'The notification channel - only subscribers to this channel will receive the notification',
@@ -75,7 +139,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       label: 'Read',
       defaultValue: false,
       admin: {
-        description: 'Whether this notification has been read by the recipient',
+        description: 'Whether the recipient has read this notification. For broadcasts, reads return the requesting user\'s own read state.',
         position: 'sidebar',
       },
     },
@@ -96,17 +160,32 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     labels,
     admin: {
       useAsTitle: 'title',
-      defaultColumns: ['title', 'recipient', 'isRead', 'createdAt'],
+      defaultColumns: ['title', 'audience', 'recipient', 'isRead', 'createdAt'],
       description: 'Manage user notifications and messaging',
     },
     fields: allFields,
     access,
+    endpoints: markNotificationReadEndpoints,
+    hooks: {
+      afterDelete: [
+        async ({ id, req }) => {
+          await req.payload.delete({
+            collection: NOTIFICATION_READS_SLUG,
+            req,
+            where: { notification: { equals: id } },
+          })
+        },
+      ],
+      afterOperation: [applyBroadcastReadState],
+      beforeValidate: [deriveAudience],
+    },
     timestamps: true,
   }
 
   // Add hooks for automatic push notifications if web push is enabled
   if (options.webPush?.enabled && options.webPush.autoPush) {
     config.hooks = {
+      ...config.hooks,
       afterChange: [
         async ({ doc, operation, req }) => {
           // Only send push notifications for new notifications
@@ -117,8 +196,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
             const pushManager = new WebPushManager(webPushConfig, req.payload)
 
             // Transform notification content using custom transformer or default
-            const transformer = webPushConfig.transformNotification || defaultNotificationTransformer
-            const pushContent = transformer(doc)
+            const pushContent = webPushConfig.transformNotification
+              ? webPushConfig.transformNotification(doc)
+              : defaultNotificationTransformer(doc, { url: webPushConfig.notificationUrl })
 
             console.log('[Notifications Plugin] Sending push notification for notification:', doc.id)
             console.log('[Notifications Plugin] Push content:', pushContent)
@@ -140,8 +220,10 @@ export function createNotificationsCollection(options: NotificationsPluginOption
               const notificationPayload = JSON.stringify({
                 title: pushContent.title,
                 body: pushContent.body,
-                icon: pushContent.icon || '/icon-192x192.png',
-                badge: pushContent.badge || '/badge-72x72.png',
+                // No icon/badge fallback: the package ships no images, and an
+                // absent value lets the service worker's ?icon=&badge= defaults apply.
+                icon: pushContent.icon,
+                badge: pushContent.badge,
                 image: pushContent.image,
                 data: pushContent.data,
                 actions: pushContent.actions,
