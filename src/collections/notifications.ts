@@ -196,8 +196,9 @@ export function createNotificationsCollection(options: NotificationsPluginOption
             const pushManager = new WebPushManager(webPushConfig, req.payload)
 
             // Transform notification content using custom transformer or default
-            const transformer = webPushConfig.transformNotification || defaultNotificationTransformer
-            const pushContent = transformer(doc)
+            const pushContent = webPushConfig.transformNotification
+              ? webPushConfig.transformNotification(doc)
+              : defaultNotificationTransformer(doc, { url: webPushConfig.notificationUrl })
 
             console.log('[Notifications Plugin] Sending push notification for notification:', doc.id)
             console.log('[Notifications Plugin] Push content:', pushContent)
@@ -219,8 +220,10 @@ export function createNotificationsCollection(options: NotificationsPluginOption
               const notificationPayload = JSON.stringify({
                 title: pushContent.title,
                 body: pushContent.body,
-                icon: pushContent.icon || '/icon-192x192.png',
-                badge: pushContent.badge || '/badge-72x72.png',
+                // No icon/badge fallback: the package ships no images, and an
+                // absent value lets the service worker's ?icon=&badge= defaults apply.
+                icon: pushContent.icon,
+                badge: pushContent.badge,
                 image: pushContent.image,
                 data: pushContent.data,
                 actions: pushContent.actions,

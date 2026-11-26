@@ -25,6 +25,21 @@ export interface NotificationChannel {
 }
 
 /**
+ * Content of a push notification, as returned by `transformNotification`
+ */
+export interface PushNotificationContent {
+  title: string
+  body: string
+  icon?: string
+  badge?: string
+  image?: string
+  data?: any
+  actions?: Array<{ action: string; title: string; icon?: string }>
+  tag?: string
+  requireInteraction?: boolean
+}
+
+/**
  * Web push configuration options
  */
 export interface WebPushConfig {
@@ -40,18 +55,14 @@ export interface WebPushConfig {
   options?: RequestOptions
   /** Automatically send push notifications when notifications are created */
   autoPush?: boolean
+  /**
+   * Where a click on a push opens, used by the default transformer (ignored
+   * when `transformNotification` is set). A function receives the
+   * notification document. Defaults to `/`.
+   */
+  notificationUrl?: ((notification: any) => string) | string
   /** Custom notification content transformer */
-  transformNotification?: (notification: any) => {
-    title: string
-    body: string
-    icon?: string
-    badge?: string
-    image?: string
-    data?: any
-    actions?: Array<{ action: string; title: string; icon?: string }>
-    tag?: string
-    requireInteraction?: boolean
-  }
+  transformNotification?: (notification: any) => PushNotificationContent
   /**
    * Custom hook to find push subscriptions for a notification
    * This allows implementing anonymous notifications or custom recipient logic

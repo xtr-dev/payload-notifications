@@ -103,6 +103,7 @@ export type { NotificationAudience } from './collections/notification-audience.j
 export type {
   NotificationsPluginOptions,
   NotificationChannel,
+  PushNotificationContent,
   WebPushConfig,
 } from './types.js'
 
