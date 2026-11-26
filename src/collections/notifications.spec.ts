@@ -1,5 +1,6 @@
-import { describe, expect, test } from 'vitest'
+import { afterEach, describe, expect, test, vi } from 'vitest'
 
+import { WebPushManager } from '../utils/webPush.js'
 import { createNotificationsCollection } from './notifications'
 
 const collection = createNotificationsCollection({
@@ -69,5 +70,60 @@ describe('notifications collection read and create access', () => {
     expect(create({ req: {} })).toBe(false)
     expect(create({ req: { user: { id: 'user-1' } } })).toBe(false)
     expect(create({ req: { user: { id: 'admin-1', role: 'admin' } } })).toBe(true)
+  })
+})
+
+describe('autoPush hook does not block notification creation when a push fails', () => {
+  afterEach(() => {
+    vi.restoreAllMocks()
+  })
+
+  const pushHook = (findSubscriptions?: () => Promise<unknown[]>) => {
+    const pushCollection = createNotificationsCollection({
+      channels: [{ id: 'general', name: 'General' }],
+      webPush: {
+        autoPush: true,
+        enabled: true,
+        findSubscriptions,
+        vapidPrivateKey: 'private-key',
+        vapidPublicKey: 'public-key',
+        vapidSubject: 'mailto:test@example.com',
+      },
+    })
+    return pushCollection.hooks?.afterChange?.[0] as (args: unknown) => Promise<unknown>
+  }
+
+  const doc = { id: 'notification-1', channel: 'general', recipient: 'user-1', title: 'Hello' }
+
+  test('resolves and keeps the subscription active when a send fails with a non-410/404 error', async () => {
+    // sendToRecipient catches this per subscription, so the hook sees a failed result, not a throw.
+    const send = vi
+      .spyOn(WebPushManager.prototype, 'sendNotification')
+      .mockRejectedValue(new Error('push service unreachable'))
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    vi.spyOn(console, 'warn').mockImplementation(() => undefined)
+    vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const payload = {
+      find: vi.fn(async () => ({ docs: [{ id: 'sub-1', auth: 'a', endpoint: 'https://push.example/1', p256dh: 'p' }] })),
+      update: vi.fn(),
+    }
+
+    await expect(pushHook()({ doc, operation: 'create', req: { payload } })).resolves.toBeUndefined()
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(payload.update).not.toHaveBeenCalled()
+  })
+
+  test('resolves when a custom findSubscriptions hook rejects, and sends nothing', async () => {
+    // This failure reaches the hook's own try/catch.
+    const send = vi.spyOn(WebPushManager.prototype, 'sendNotification')
+    vi.spyOn(console, 'log').mockImplementation(() => undefined)
+    const consoleError = vi.spyOn(console, 'error').mockImplementation(() => undefined)
+    const payload = { find: vi.fn(), update: vi.fn() }
+
+    await expect(
+      pushHook(() => Promise.reject(new Error('lookup backend down')))({ doc, operation: 'create', req: { payload } }),
+    ).resolves.toBeUndefined()
+    expect(send).not.toHaveBeenCalled()
+    expect(consoleError).toHaveBeenCalledWith('[Notifications Plugin] Error sending push notification:', expect.any(Error))
   })
 })
