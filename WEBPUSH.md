@@ -222,6 +222,7 @@ notificationsPlugin({
 
 **Key Points:**
 - The default `recipient` field remains a user relationship for standard notifications
+- A notification without a `recipient` is created as a broadcast and every signed-in user can read it. Set `audience: 'user'` on custom-recipient notifications so that only admins can read them through the API
 - Add custom recipient fields via `collectionOverrides.notifications` for your specific use case
 - Use the `findSubscriptions` hook to implement custom subscription lookup logic
 - The hook receives the full notification document and payload instance

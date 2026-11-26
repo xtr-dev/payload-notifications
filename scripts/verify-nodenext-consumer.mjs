@@ -33,8 +33,8 @@ try {
   execFileSync('tar', ['-xf', join(scratch, tarballName), '-C', pkgDir, '--strip-components=1'])
 
   // The public declaration graph only names types from these two peers
-  // (CollectionConfig/Field/Config/Payload/PayloadRequest/Endpoint from
-  // `payload`, RequestOptions from `web-push`). Stubbing just those symbols
+  // (CollectionConfig/Field/Config/Payload/PayloadRequest/Endpoint and the
+  // collection hook types from `payload`, RequestOptions from `web-push`). Stubbing just those symbols
   // isolates the check to this package's own emitted specifiers instead of
   // tripping over unrelated strictness issues inside payload's own types.
   writeStub(join(consumer, 'node_modules', 'payload'), {
@@ -46,6 +46,8 @@ try {
       'export interface Payload { [key: string]: any }',
       'export interface PayloadRequest { [key: string]: any }',
       'export interface Endpoint { [key: string]: any }',
+      'export type CollectionAfterOperationHook = (args: any) => any',
+      'export type CollectionBeforeValidateHook = (args: any) => any',
       '',
     ].join('\n'),
   })
