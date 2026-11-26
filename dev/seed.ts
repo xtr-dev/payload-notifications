@@ -1,6 +1,6 @@
 import type { Payload } from 'payload'
 
-import { devUser } from './helpers/credentials.ts'
+import { devUser } from './helpers/credentials'
 
 export const seed = async (payload: Payload) => {
   console.log('Seeding database...')

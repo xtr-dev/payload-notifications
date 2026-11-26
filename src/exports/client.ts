@@ -138,7 +138,9 @@ export function usePushNotifications(vapidPublicKey: string, channels: string[])
     setPermission(manager.getPermissionStatus())
 
     if (manager.isSupported()) {
-      manager.isSubscribed().then(setIsSubscribed)
+      manager.isSubscribed().then(setIsSubscribed).catch((error: unknown) => {
+        console.error('Failed to check push subscription status:', error)
+      })
     }
   }, [vapidPublicKey])
 

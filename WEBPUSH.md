@@ -69,7 +69,11 @@ notificationsPlugin({
     vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
     vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
     vapidSubject: 'mailto:your-email@example.com',
-    // Optional: Custom notification transformer
+    // Optional: where a click on a push opens when using the default
+    // transformer (default '/'). A string or (notification) => string.
+    notificationUrl: (notification) => `/account/notifications/${notification.id}`,
+    // Optional: Custom notification transformer (replaces the default one,
+    // so notificationUrl no longer applies)
     transformNotification: (notification) => ({
       title: `🔔 ${notification.title}`,
       body: extractTextFromRichText(notification.message).substring(0, 120) + '...',
@@ -77,7 +81,10 @@ notificationsPlugin({
       badge: '/icons/notification-badge.png',
       data: {
         notificationId: notification.id,
-        url: `/admin/collections/notifications/${notification.id}`
+        url: `/account/notifications/${notification.id}`,
+        // Read by the service worker to report a closed notification to /api/push-notifications/track
+        id: notification.id,
+        trackClose: true,
       },
       actions: [
         { action: 'view', title: 'View', icon: '/icons/view.png' },
@@ -93,6 +100,8 @@ notificationsPlugin({
   }
 })
 ```
+
+Without `transformNotification`, the default transformer sends the title, a plain-text excerpt of the message (up to 120 characters), `data: { id, notificationId, url, createdAt, trackClose: true }` and `tag: notification-<id>`. It sets no icon, badge or actions, since the package ships no images (see [Icon and badge](#icon-and-badge)).
 
 ## Anonymous Notifications Support
 
@@ -213,6 +222,7 @@ notificationsPlugin({
 
 **Key Points:**
 - The default `recipient` field remains a user relationship for standard notifications
+- A notification without a `recipient` is created as a broadcast and every signed-in user can read it. Set `audience: 'user'` on custom-recipient notifications so that only admins can read them through the API
 - Add custom recipient fields via `collectionOverrides.notifications` for your specific use case
 - Use the `findSubscriptions` hook to implement custom subscription lookup logic
 - The hook receives the full notification document and payload instance
@@ -299,7 +309,7 @@ new ClientPushManager(vapidPublicKey, {
 })
 ```
 
-Without either, the notification is shown without an icon or badge; the worker itself no longer hardcodes `/icon-192x192.png` and `/badge-72x72.png`. Note that pushes sent by the plugin (`autoPush`, `WebPushManager.sendToRecipient`) still fill in an icon and badge server-side when `transformNotification` returns none, so for those, set `icon`/`badge` in `transformNotification`; the query parameters apply to pushes whose payload really has none.
+Without either, the notification is shown without an icon or badge; the worker itself no longer hardcodes `/icon-192x192.png` and `/badge-72x72.png`. Pushes sent by the plugin (`autoPush`, `WebPushManager.sendToRecipient`) do not add an icon or badge either, so the query parameters apply to them whenever `transformNotification` (or the `sendToRecipient` options) set none.
 
 The worker handles:
 
@@ -307,7 +317,7 @@ The worker handles:
 - Notification click handling
 - Service worker lifecycle management
 - Error handling and fallbacks
-- Notification close tracking (fetches `/api/push-notifications/track`, which this plugin does not implement — remove that handler or implement the route yourself if you don't want a 404 on every dismissal)
+- Notification close tracking (posts to `/api/push-notifications/track`, which the plugin registers when `webPush.enabled`; the endpoint validates and logs the event)
 
 **Important Notes:**
 - The service worker file **must** be placed at `/public/sw.js` in Next.js projects
@@ -346,8 +356,9 @@ The plugin automatically creates these endpoints when web push is enabled. (The 
 - `POST /api/push-notifications/subscribe` - Subscribe to push notifications ⚠️ **Requires authentication**
 - `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
 - `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
+- `POST /api/push-notifications/track` - Track notification events (called by the generated service worker)
 
-There are no `/send`, `/test`, or `/track` routes. Sending is done server-side by calling `WebPushManager` directly (see above), either from the `autoPush` hook or your own code — there is no HTTP endpoint for it.
+There is no HTTP endpoint for sending a push notification. Sends happen server-side, either automatically via `autoPush` on the notifications collection or by calling `WebPushManager.sendToUser()` directly, as shown above.
 
 ## Integration with Notifications Collection
 

@@ -123,8 +123,10 @@ export class WebPushManager {
     const notificationPayload = JSON.stringify({
       title,
       body,
-      icon: options?.icon || '/icon-192x192.png',
-      badge: options?.badge || '/badge-72x72.png',
+      // No icon/badge fallback: the package ships no images, and an absent
+      // value lets the service worker's ?icon=&badge= defaults apply.
+      icon: options?.icon,
+      badge: options?.badge,
       image: options?.image,
       data: options?.data,
       actions: options?.actions,
@@ -216,6 +218,10 @@ export class WebPushManager {
         depth: 0,
       })
 
+      // userId and channels are cast to `any` below because a consumer's generated
+      // Payload types narrow `user` and `channels` to that consumer's own relationship
+      // and select-option unions (e.g. specific channel ids), which this plugin cannot
+      // know statically - its own public contract stays string|number and string[].
       if (existing.docs.length > 0) {
         const existingUser = existing.docs[0].user
         const ownerId =
@@ -231,11 +237,11 @@ export class WebPushManager {
           collection: 'push-subscriptions',
           id: existing.docs[0].id,
           data: {
-            user: userId,
+            user: userId as any,
             p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
             userAgent,
-            channels,
+            channels: channels as any,
             isActive: true,
           },
         })
@@ -243,12 +249,12 @@ export class WebPushManager {
         await this.payload.create({
           collection: 'push-subscriptions',
           data: {
-            user: userId,
+            user: userId as any,
             endpoint: subscription.endpoint,
             p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
             userAgent,
-            channels,
+            channels: channels as any,
             isActive: true,
           },
         })
