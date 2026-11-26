@@ -1,4 +1,5 @@
 import { describe, expect, test } from 'vitest'
+
 import { createPushSubscriptionsCollection } from './push-subscriptions'
 
 // These tests cover the owner-scoped access that applies while web push is
@@ -9,17 +10,17 @@ const pluginOptions = { channels: [], webPush: { enabled: true } } as any
 function collectionAccess() {
   const collection = createPushSubscriptionsCollection(pluginOptions)
   return collection.access as {
-    read: (args: any) => any
     create: (args: any) => any
-    update: (args: any) => any
     delete: (args: any) => any
+    read: (args: any) => any
+    update: (args: any) => any
   }
 }
 
 function beforeChangeHook() {
   const collection = createPushSubscriptionsCollection(pluginOptions)
   const hook = collection.hooks?.beforeChange?.[0]
-  if (!hook) throw new Error('beforeChange hook was not registered')
+  if (!hook) {throw new Error('beforeChange hook was not registered')}
   return hook
 }
 
@@ -62,8 +63,8 @@ describe('push-subscriptions collection access', () => {
 describe('push-subscriptions beforeChange ownership', () => {
   test('assigns the requesting user when the client omits user', async () => {
     const data = await beforeChangeHook()({
-      req: { user: { id: 'requesting-user' } },
       data: {},
+      req: { user: { id: 'requesting-user' } },
     } as any)
 
     expect(data.user).toBe('requesting-user')
@@ -73,9 +74,9 @@ describe('push-subscriptions beforeChange ownership', () => {
     '%s overwrites a non-admin attempt to set user to someone else',
     async (operation) => {
       const data = await beforeChangeHook()({
-        req: { user: { id: 'requesting-user' } },
         data: { user: 'someone-else' },
         operation,
+        req: { user: { id: 'requesting-user' } },
       } as any)
 
       expect(data.user).toBe('requesting-user')
@@ -84,8 +85,8 @@ describe('push-subscriptions beforeChange ownership', () => {
 
   test('lets an admin assign the subscription to another user', async () => {
     const data = await beforeChangeHook()({
-      req: { user: { id: 'admin-user', role: 'admin' } },
       data: { user: 'someone-else' },
+      req: { user: { id: 'admin-user', role: 'admin' } },
     } as any)
 
     expect(data.user).toBe('someone-else')
@@ -93,8 +94,8 @@ describe('push-subscriptions beforeChange ownership', () => {
 
   test('defaults an admin create with no user to the admin themselves', async () => {
     const data = await beforeChangeHook()({
-      req: { user: { id: 'admin-user', role: 'admin' } },
       data: {},
+      req: { user: { id: 'admin-user', role: 'admin' } },
     } as any)
 
     expect(data.user).toBe('admin-user')

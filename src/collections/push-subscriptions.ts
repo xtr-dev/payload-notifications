@@ -1,4 +1,5 @@
 import type { CollectionConfig } from 'payload'
+
 import type { NotificationsPluginOptions } from '../types.js'
 
 /**
@@ -20,8 +21,8 @@ export function createPushSubscriptionsCollection(options: NotificationsPluginOp
   // check in the /unsubscribe endpoint). Admins keep full access, matching the
   // convention in the notifications collection.
   const ownRecordOrAdmin = ({ req }: { req: any }) => {
-    if (!req.user) return false
-    if (req.user.role === 'admin') return true
+    if (!req.user) {return false}
+    if (req.user.role === 'admin') {return true}
     return { user: { equals: req.user.id } }
   }
 
@@ -41,93 +42,88 @@ export function createPushSubscriptionsCollection(options: NotificationsPluginOp
 
   const config: CollectionConfig = {
     slug: 'push-subscriptions',
-    labels: {
-      singular: 'Push Subscription',
-      plural: 'Push Subscriptions',
-    },
+    access,
     admin: {
-      useAsTitle: 'endpoint',
       defaultColumns: ['user', 'endpoint', 'createdAt'],
       description: 'Web push notification subscriptions for users',
+      useAsTitle: 'endpoint',
       // hidden: true, // Hide from main navigation
     },
     fields: [
       {
         name: 'user',
         type: 'relationship',
-        relationTo: 'users',
-        label: 'User',
-        required: true,
         admin: {
           description: 'The user this push subscription belongs to',
         },
+        label: 'User',
+        relationTo: 'users',
+        required: true,
       },
       {
         name: 'endpoint',
         type: 'text',
-        label: 'Endpoint',
-        required: true,
-        unique: true,
         admin: {
           description: 'Push service endpoint URL',
         },
+        label: 'Endpoint',
+        required: true,
+        unique: true,
       },
       {
         name: 'p256dh',
         type: 'text',
-        label: 'P256DH Key',
-        required: true,
         admin: {
           description: 'User agent public key for encryption',
         },
+        label: 'P256DH Key',
+        required: true,
       },
       {
         name: 'auth',
         type: 'text',
-        label: 'Auth Secret',
-        required: true,
         admin: {
           description: 'User agent authentication secret',
         },
+        label: 'Auth Secret',
+        required: true,
       },
       {
         name: 'userAgent',
         type: 'text',
-        label: 'User Agent',
         admin: {
           description: 'Browser/device information',
         },
+        label: 'User Agent',
       },
       {
         name: 'channels',
         type: 'select',
+        admin: {
+          description: 'Channels this subscription is subscribed to - leave empty for all notifications',
+        },
+        hasMany: true,
         label: 'Subscribed Channels',
         options: options.channels.map(channel => ({
           label: channel.name,
           value: channel.id,
         })),
-        hasMany: true,
-        admin: {
-          description: 'Channels this subscription is subscribed to - leave empty for all notifications',
-        },
       },
       {
         name: 'isActive',
         type: 'checkbox',
-        label: 'Active',
-        defaultValue: true,
         admin: {
           description: 'Whether this subscription is still active',
           position: 'sidebar',
         },
+        defaultValue: true,
+        label: 'Active',
       },
     ],
-    access,
-    timestamps: true,
     hooks: {
       beforeChange: [
-        ({ req, data }: { req: any; data: any }) => {
-          if (!req.user) return data
+        ({ data, req }: { data: any; req: any }) => {
+          if (!req.user) {return data}
           // Non-admins always own the row they write. Create and update both
           // run this hook, so a logged-in user cannot attach their endpoint/keys
           // to another user's id (sendToRecipient would then push the victim's
@@ -143,6 +139,11 @@ export function createPushSubscriptionsCollection(options: NotificationsPluginOp
         },
       ],
     },
+    labels: {
+      plural: 'Push Subscriptions',
+      singular: 'Push Subscription',
+    },
+    timestamps: true,
   }
   return options.collectionOverrides?.pushSubscriptions ?
     options.collectionOverrides.pushSubscriptions(config) :

@@ -23,7 +23,7 @@ const INLINE_NODE_TYPES = new Set(['autolink', 'code-highlight', 'linebreak', 'l
  * collapsed, since the result is a one-line excerpt for a push body.
  */
 export function extractTextFromRichText(richText: any): string {
-  if (!richText) return ''
+  if (!richText) {return ''}
 
   if (typeof richText === 'string') {
     return richText
@@ -44,13 +44,13 @@ function isObject(value: unknown): value is Record<string, any> {
  * the caller collapses the padding.
  */
 function renderNode(node: any): string {
-  if (typeof node === 'string') return node
-  if (Array.isArray(node)) return node.map(renderNode).join('')
-  if (!isObject(node)) return ''
+  if (typeof node === 'string') {return node}
+  if (Array.isArray(node)) {return node.map(renderNode).join('')}
+  if (!isObject(node)) {return ''}
 
-  if (node.type === 'linebreak' || node.type === 'tab') return ' '
-  if (typeof node.text === 'string') return node.text
-  if (!Array.isArray(node.children)) return ''
+  if (node.type === 'linebreak' || node.type === 'tab') {return ' '}
+  if (typeof node.text === 'string') {return node.text}
+  if (!Array.isArray(node.children)) {return ''}
 
   const inner = node.children.map(renderNode).join('')
   return typeof node.type === 'string' && INLINE_NODE_TYPES.has(node.type) ? inner : ` ${inner} `
@@ -60,7 +60,7 @@ function renderNode(node: any): string {
  * Truncate text to a maximum length with ellipsis
  */
 export function truncateText(text: string, maxLength: number = 100): string {
-  if (!text || text.length <= maxLength) return text
+  if (!text || text.length <= maxLength) {return text}
   return text.substring(0, maxLength - 3) + '...'
 }
 
@@ -98,16 +98,16 @@ export function defaultNotificationTransformer(
   const url = typeof options.url === 'function' ? options.url(notification) : options.url || '/'
 
   return {
-    title,
     body,
     data: {
       id: notification.id,
-      notificationId: notification.id,
-      url,
       createdAt: notification.createdAt,
+      notificationId: notification.id,
       trackClose: true,
+      url,
     },
-    tag: `notification-${notification.id}`,
     requireInteraction: false,
+    tag: `notification-${notification.id}`,
+    title,
   }
 }

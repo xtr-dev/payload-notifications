@@ -33,8 +33,8 @@ jobs:
       # test:int runs every vitest suite, including the src/**/*.spec.ts unit tests that
       # test:unit selects. published-exports and declarations import dist/, so the build
       # has to run first; plugin-release.yml builds again after the version bump.
-      # pnpm lint is left out: it fails on main (about 300 perfectionist/sort-* errors).
       check: |
+        pnpm lint
         pnpm test:int
         pnpm build
         pnpm test:published-exports

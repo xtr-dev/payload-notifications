@@ -1,12 +1,11 @@
-import { Script } from 'node:vm'
-import { createElement } from 'react'
-import { renderToString } from 'react-dom/server'
-import { describe, expect, test } from 'vitest'
-
 import {
   serviceWorkerCode,
   usePushNotifications,
 } from '@xtr-dev/payload-notifications/client'
+import { Script } from 'node:vm'
+import { createElement } from 'react'
+import { renderToString } from 'react-dom/server'
+import { describe, expect, test } from 'vitest'
 
 describe('@xtr-dev/payload-notifications/client', () => {
   test('provides a working React hook through the public client entry point', () => {

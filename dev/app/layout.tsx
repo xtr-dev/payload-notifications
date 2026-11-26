@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
-  title: 'Payload Notifications Plugin Demo',
   description: 'Demo environment for the @xtr-dev/payload-notifications plugin',
+  title: 'Payload Notifications Plugin Demo',
 }
 
 export default function RootLayout({

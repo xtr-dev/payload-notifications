@@ -24,9 +24,9 @@ export const seed = async (payload: Payload) => {
       collection: 'users',
       data: {
         ...devUser,
-        role: 'admin',
         firstName: 'Admin',
         lastName: 'User',
+        role: 'admin',
       },
     })
     console.log('✅ Created admin user:', devUser.email)
@@ -36,10 +36,10 @@ export const seed = async (payload: Payload) => {
       collection: 'users',
       data: {
         email: 'customer@example.com',
-        password: 'test',
-        role: 'customer',
         firstName: 'John',
         lastName: 'Customer',
+        password: 'test',
+        role: 'customer',
       },
     })
     console.log('✅ Created customer user')
@@ -47,15 +47,15 @@ export const seed = async (payload: Payload) => {
     // Get existing users
     const existingAdmin = await payload.find({
       collection: 'users',
-      where: { email: { equals: devUser.email } },
       limit: 1,
+      where: { email: { equals: devUser.email } },
     })
     adminUser = existingAdmin.docs[0]
 
     const existingCustomer = await payload.find({
       collection: 'users',
-      where: { email: { equals: 'customer@example.com' } },
       limit: 1,
+      where: { email: { equals: 'customer@example.com' } },
     })
     customerUser = existingCustomer.docs[0]
   }
@@ -69,7 +69,8 @@ export const seed = async (payload: Payload) => {
     await payload.create({
       collection: 'notifications',
       data: {
-        title: 'Welcome to the Demo!',
+        channel: 'general',
+        isRead: false,
         message: {
           root: {
             type: 'root',
@@ -95,15 +96,15 @@ export const seed = async (payload: Payload) => {
           },
         },
         recipient: customerUser.id,
-        channel: 'general',
-        isRead: false,
+        title: 'Welcome to the Demo!',
       },
     })
 
     await payload.create({
       collection: 'notifications',
       data: {
-        title: 'Orders Channel Demo',
+        channel: 'orders',
+        isRead: false,
         message: {
           root: {
             type: 'root',
@@ -129,15 +130,15 @@ export const seed = async (payload: Payload) => {
           },
         },
         recipient: customerUser.id,
-        channel: 'orders',
-        isRead: false,
+        title: 'Orders Channel Demo',
       },
     })
 
     await payload.create({
       collection: 'notifications',
       data: {
-        title: 'New Product Recommendation',
+        channel: 'products',
+        isRead: true,
         message: {
           root: {
             type: 'root',
@@ -162,10 +163,9 @@ export const seed = async (payload: Payload) => {
             version: 1,
           },
         },
-        recipient: customerUser.id,
-        channel: 'products',
-        isRead: true,
         readAt: new Date().toISOString(),
+        recipient: customerUser.id,
+        title: 'New Product Recommendation',
       },
     })
 

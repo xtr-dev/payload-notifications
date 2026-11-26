@@ -1,5 +1,7 @@
 import type { CollectionBeforeDeleteHook, CollectionConfig, Config } from 'payload'
-import type { NotificationsPluginOptions, NotificationsPlugin } from './types.js'
+
+import type { NotificationsPlugin, NotificationsPluginOptions } from './types.js'
+
 import { createNotificationReadsCollection, NOTIFICATION_READS_SLUG } from './collections/notification-reads.js'
 import { createNotificationsCollection } from './collections/notifications.js'
 import { createPushSubscriptionsCollection } from './collections/push-subscriptions.js'
@@ -29,8 +31,8 @@ const deleteUserNotificationData: CollectionBeforeDeleteHook = async ({ id, req 
 const defaultOptions: NotificationsPluginOptions = {
   channels: [
     {
-      name: 'Default',
       id: 'default',
+      name: 'Default',
       description: 'Default channel',
     }
   ]
@@ -103,8 +105,8 @@ export const notificationsPlugin: NotificationsPlugin = (options = defaultOption
 // Export types for consumers
 export type { NotificationAudience } from './collections/notification-audience.js'
 export type {
-  NotificationsPluginOptions,
   NotificationChannel,
+  NotificationsPluginOptions,
   PushNotificationContent,
   WebPushConfig,
 } from './types.js'

@@ -1,6 +1,8 @@
 import type { Endpoint, PayloadRequest } from 'payload'
-import { PushSubscriptionOwnershipError, WebPushManager } from '../utils/webPush.js'
+
 import type { NotificationsPluginOptions } from '../types.js'
+
+import { PushSubscriptionOwnershipError, WebPushManager } from '../utils/webPush.js'
 
 /**
  * Create push notification API endpoints
@@ -15,8 +17,6 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
   return [
     // Subscribe endpoint
     {
-      path: '/push-notifications/subscribe',
-      method: 'post',
       handler: async (req: PayloadRequest) => {
         try {
           if (!req.user) {
@@ -28,7 +28,7 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
             return Response.json({ error: 'Invalid request body' }, { status: 400 })
           }
 
-          const { subscription, userAgent, channels } = body as { subscription: any, userAgent: string, channels: string[] }
+          const { channels, subscription, userAgent } = body as { channels: string[], subscription: any, userAgent: string }
 
           if (!subscription || !subscription.endpoint) {
             return Response.json({ error: 'Invalid subscription data' }, { status: 400 })
@@ -54,12 +54,12 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           )
         }
       },
+      method: 'post',
+      path: '/push-notifications/subscribe',
     },
 
     // Unsubscribe endpoint
     {
-      path: '/push-notifications/unsubscribe',
-      method: 'post',
       handler: async (req: PayloadRequest) => {
         try {
           if (!req.user) {
@@ -89,25 +89,15 @@ export function createPushNotificationEndpoints(options: NotificationsPluginOpti
           )
         }
       },
+      method: 'post',
+      path: '/push-notifications/unsubscribe',
     },
 
     // Get VAPID public key
     {
-      path: '/push-notifications/vapid-public-key',
+      handler: () => Response.json({ publicKey: webPushConfig.vapidPublicKey }),
       method: 'get',
-      handler: async (req: PayloadRequest) => {
-        try {
-          return Response.json({
-            publicKey: webPushConfig.vapidPublicKey,
-          })
-        } catch (error: any) {
-          console.error('VAPID key error:', error)
-          return Response.json(
-            { error: 'Failed to get VAPID public key' },
-            { status: 500 }
-          )
-        }
-      },
+      path: '/push-notifications/vapid-public-key',
     },
 
     // Track notification events reported by the service worker (e.g. notificationclose).

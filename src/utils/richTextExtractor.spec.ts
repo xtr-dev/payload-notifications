@@ -99,7 +99,7 @@ describe('extractTextFromRichText with other inputs', () => {
       {
         children: [
           { text: 'Visit ' },
-          { type: 'link', url: 'https://example.com', children: [{ text: 'our site', bold: true }] },
+          { type: 'link', children: [{ bold: true, text: 'our site' }], url: 'https://example.com' },
           { text: ' today.' },
         ],
       },
@@ -112,14 +112,14 @@ describe('defaultNotificationTransformer with a Lexical message', () => {
   test('uses the message text as the push body instead of the generic fallback', () => {
     const content = defaultNotificationTransformer({
       id: 1,
-      title: 'Booking confirmed',
       message: lexical(element('paragraph', [text('See you on Friday.')])),
+      title: 'Booking confirmed',
     })
     expect(content.body).toBe('See you on Friday.')
   })
 
   test('falls back to the generic body only when the message has no text', () => {
-    const content = defaultNotificationTransformer({ id: 1, title: 'Empty', message: lexical() })
+    const content = defaultNotificationTransformer({ id: 1, message: lexical(), title: 'Empty' })
     expect(content.body).toBe('You have a new notification')
   })
 })

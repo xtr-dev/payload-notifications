@@ -16,7 +16,7 @@ function canUpdateField(name: string, user?: { id: string; role?: string }) {
     access?: { update?: (args: { req: { user?: { id: string; role?: string } } }) => unknown }
   } | undefined
   const fieldAccess = field?.access?.update
-  if (typeof fieldAccess !== 'function') return true
+  if (typeof fieldAccess !== 'function') {return true}
   return fieldAccess({ req: { user } })
 }
 
@@ -104,7 +104,7 @@ describe('autoPush hook does not block notification creation when a push fails',
     vi.spyOn(console, 'warn').mockImplementation(() => undefined)
     vi.spyOn(console, 'error').mockImplementation(() => undefined)
     const payload = {
-      find: vi.fn(async () => ({ docs: [{ id: 'sub-1', auth: 'a', endpoint: 'https://push.example/1', p256dh: 'p' }] })),
+      find: vi.fn(() => Promise.resolve({ docs: [{ id: 'sub-1', auth: 'a', endpoint: 'https://push.example/1', p256dh: 'p' }] })),
       update: vi.fn(),
     }
 

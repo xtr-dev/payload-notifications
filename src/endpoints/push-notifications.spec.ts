@@ -1,12 +1,13 @@
 import { describe, expect, test, vi } from 'vitest'
+
 import { createPushNotificationEndpoints } from './push-notifications'
 
 const pluginOptions = {
   channels: [],
   webPush: {
     enabled: true,
-    vapidPublicKey: 'public-key',
     vapidPrivateKey: 'private-key',
+    vapidPublicKey: 'public-key',
     vapidSubject: 'mailto:test@example.com',
   },
 }
@@ -15,7 +16,7 @@ function unsubscribeHandler() {
   const endpoint = createPushNotificationEndpoints(pluginOptions)
     .find(({ path }) => path === '/push-notifications/unsubscribe')
 
-  if (!endpoint) throw new Error('Unsubscribe endpoint was not registered')
+  if (!endpoint) {throw new Error('Unsubscribe endpoint was not registered')}
   return endpoint.handler
 }
 
@@ -23,7 +24,7 @@ function subscribeHandler() {
   const endpoint = createPushNotificationEndpoints(pluginOptions)
     .find(({ path }) => path === '/push-notifications/subscribe')
 
-  if (!endpoint) throw new Error('Subscribe endpoint was not registered')
+  if (!endpoint) {throw new Error('Subscribe endpoint was not registered')}
   return endpoint.handler
 }
 
@@ -50,9 +51,9 @@ describe('push notification unsubscribe endpoint', () => {
     const payload = { find: vi.fn(), update: vi.fn() }
 
     const response = await unsubscribeHandler()({
-      user: null,
       json: vi.fn(),
       payload,
+      user: null,
     } as any)
 
     expect(response.status).toBe(401)
@@ -67,20 +68,20 @@ describe('push notification unsubscribe endpoint', () => {
     }
 
     const response = await unsubscribeHandler()({
-      user: { id: 'requesting-user' },
       json: vi.fn().mockResolvedValue({ endpoint: 'https://push.example.test/other-users-endpoint' }),
       payload,
+      user: { id: 'requesting-user' },
     } as any)
 
     expect(payload.find).toHaveBeenCalledWith({
       collection: 'push-subscriptions',
+      limit: 1,
       where: {
         and: [
           { endpoint: { equals: 'https://push.example.test/other-users-endpoint' } },
           { user: { equals: 'requesting-user' } },
         ],
       },
-      limit: 1,
     })
     expect(payload.update).not.toHaveBeenCalled()
     expect(response.status).toBe(200)
@@ -94,14 +95,14 @@ describe('push notification unsubscribe endpoint', () => {
     }
 
     const response = await unsubscribeHandler()({
-      user: { id: 'requesting-user' },
       json: vi.fn().mockResolvedValue({ endpoint: 'https://push.example.test/own-endpoint' }),
       payload,
+      user: { id: 'requesting-user' },
     } as any)
 
     expect(payload.update).toHaveBeenCalledWith({
-      collection: 'push-subscriptions',
       id: 'owned-subscription',
+      collection: 'push-subscriptions',
       data: { isActive: false },
     })
     expect(response.status).toBe(200)
@@ -111,12 +112,12 @@ describe('push notification unsubscribe endpoint', () => {
 
 describe('push notification subscribe endpoint', () => {
   test('rejects an unauthenticated request without touching the database', async () => {
-    const payload = { find: vi.fn(), update: vi.fn(), create: vi.fn() }
+    const payload = { create: vi.fn(), find: vi.fn(), update: vi.fn() }
 
     const response = await subscribeHandler()({
-      user: null,
       json: vi.fn(),
       payload,
+      user: null,
     } as any)
 
     expect(response.status).toBe(401)
@@ -127,26 +128,26 @@ describe('push notification subscribe endpoint', () => {
 
   test('refuses to overwrite a subscription owned by another user', async () => {
     const payload = {
+      create: vi.fn(),
       find: vi.fn().mockResolvedValue({
         docs: [{ id: 'victim-subscription', user: 'victim-user' }],
       }),
       update: vi.fn(),
-      create: vi.fn(),
     }
 
     const response = await subscribeHandler()({
-      user: { id: 'requesting-user' },
       json: vi.fn().mockResolvedValue(foreignSubscriptionBody),
       payload,
+      user: { id: 'requesting-user' },
     } as any)
 
     expect(payload.find).toHaveBeenCalledWith({
       collection: 'push-subscriptions',
+      depth: 0,
+      limit: 1,
       where: {
         endpoint: { equals: 'https://push.example.test/other-users-endpoint' },
       },
-      limit: 1,
-      depth: 0,
     })
     expect(payload.update).not.toHaveBeenCalled()
     expect(payload.create).not.toHaveBeenCalled()
@@ -158,29 +159,29 @@ describe('push notification subscribe endpoint', () => {
 
   test('updates a subscription that already belongs to the authenticated user', async () => {
     const payload = {
+      create: vi.fn(),
       find: vi.fn().mockResolvedValue({
         docs: [{ id: 'owned-subscription', user: 'requesting-user' }],
       }),
       update: vi.fn().mockResolvedValue({}),
-      create: vi.fn(),
     }
 
     const response = await subscribeHandler()({
-      user: { id: 'requesting-user' },
       json: vi.fn().mockResolvedValue(ownSubscriptionBody),
       payload,
+      user: { id: 'requesting-user' },
     } as any)
 
     expect(payload.update).toHaveBeenCalledWith({
-      collection: 'push-subscriptions',
       id: 'owned-subscription',
+      collection: 'push-subscriptions',
       data: {
-        user: 'requesting-user',
-        p256dh: 'new-p256dh',
         auth: 'new-auth',
-        userAgent: 'vitest',
         channels: ['general'],
         isActive: true,
+        p256dh: 'new-p256dh',
+        user: 'requesting-user',
+        userAgent: 'vitest',
       },
     })
     expect(payload.create).not.toHaveBeenCalled()
@@ -190,27 +191,27 @@ describe('push notification subscribe endpoint', () => {
 
   test('creates a subscription when the endpoint is not yet stored', async () => {
     const payload = {
+      create: vi.fn().mockResolvedValue({}),
       find: vi.fn().mockResolvedValue({ docs: [] }),
       update: vi.fn(),
-      create: vi.fn().mockResolvedValue({}),
     }
 
     const response = await subscribeHandler()({
-      user: { id: 'requesting-user' },
       json: vi.fn().mockResolvedValue(ownSubscriptionBody),
       payload,
+      user: { id: 'requesting-user' },
     } as any)
 
     expect(payload.create).toHaveBeenCalledWith({
       collection: 'push-subscriptions',
       data: {
-        user: 'requesting-user',
-        endpoint: 'https://push.example.test/own-endpoint',
-        p256dh: 'new-p256dh',
         auth: 'new-auth',
-        userAgent: 'vitest',
         channels: ['general'],
+        endpoint: 'https://push.example.test/own-endpoint',
         isActive: true,
+        p256dh: 'new-p256dh',
+        user: 'requesting-user',
+        userAgent: 'vitest',
       },
     })
     expect(payload.update).not.toHaveBeenCalled()
@@ -223,12 +224,12 @@ function trackHandler() {
   const endpoint = createPushNotificationEndpoints(pluginOptions)
     .find(({ path }) => path === '/push-notifications/track')
 
-  if (!endpoint) throw new Error('Track endpoint was not registered')
+  if (!endpoint) {throw new Error('Track endpoint was not registered')}
   return endpoint.handler
 }
 
 function trackRequest(body: unknown, user: unknown = { id: 'user-1' }): any {
-  return { json: async () => body, payload: {}, user }
+  return { json: () => Promise.resolve(body), payload: {}, user }
 }
 
 describe('push notification track endpoint', () => {
@@ -270,7 +271,7 @@ describe('push notification track endpoint', () => {
   })
 
   test('answers malformed JSON with 400 instead of 500', async () => {
-    const request = { json: async () => JSON.parse('{not json'), payload: {}, user: { id: 'user-1' } }
+    const request = { json: () => Promise.resolve().then(() => JSON.parse('{not json')), payload: {}, user: { id: 'user-1' } }
     const response = await trackHandler()(request as any)
 
     expect(response.status).toBe(400)

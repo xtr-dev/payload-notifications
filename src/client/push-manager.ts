@@ -8,8 +8,8 @@
 export interface PushSubscriptionData {
   endpoint: string
   keys: {
-    p256dh: string
     auth: string
+    p256dh: string
   }
 }
 
@@ -17,15 +17,15 @@ export interface PushSubscriptionData {
 const isBrowser = typeof window !== 'undefined'
 
 export class ClientPushManager {
-  private readonly vapidPublicKey: string
-  private readonly serviceWorkerPath: string
   private readonly apiEndpoint: string
+  private readonly serviceWorkerPath: string
+  private readonly vapidPublicKey: string
 
   constructor(
     vapidPublicKey: string,
     options: {
-      serviceWorkerPath?: string
       apiEndpoint?: string
+      serviceWorkerPath?: string
     } = {}
   ) {
     this.vapidPublicKey = vapidPublicKey
@@ -34,149 +34,12 @@ export class ClientPushManager {
   }
 
   /**
-   * Check if push notifications are supported
+   * Convert ArrayBuffer to base64 string
    */
-  public isSupported(): boolean {
-    if (!isBrowser) return false
-
-    return (
-      'serviceWorker' in navigator &&
-      'PushManager' in window &&
-      'Notification' in window
-    )
-  }
-
-  /**
-   * Check current notification permission status
-   */
-  public getPermissionStatus(): NotificationPermission {
-    if (!isBrowser || typeof Notification === 'undefined') return 'default'
-    return Notification.permission
-  }
-
-  /**
-   * Request notification permission from user
-   */
-  public async requestPermission(): Promise<NotificationPermission> {
-    if (!this.isSupported()) {
-      throw new Error('Push notifications are not supported')
-    }
-
-    return await Notification.requestPermission()
-  }
-
-  /**
-   * Register service worker
-   */
-  public async registerServiceWorker(): Promise<ServiceWorkerRegistration> {
-    if (!isBrowser || !('serviceWorker' in navigator)) {
-      throw new Error('Service workers are not supported')
-    }
-
-    try {
-      const registration = await navigator.serviceWorker.register(this.serviceWorkerPath)
-      console.log('Service worker registered:', registration)
-      return registration
-    } catch (error) {
-      console.error('Service worker registration failed:', error)
-      throw error
-    }
-  }
-
-  /**
-   * Subscribe to push notifications
-   */
-  public async subscribe(channels: string[]): Promise<PushSubscriptionData> {
-    // Check support
-    if (!this.isSupported()) {
-      throw new Error('Push notifications are not supported')
-    }
-
-    // Request permission
-    const permission = await this.requestPermission()
-    if (permission !== 'granted') {
-      throw new Error('Notification permission not granted')
-    }
-
-    // Register service worker
-    const registration = await this.registerServiceWorker()
-
-    // Wait for service worker to be ready
-    await navigator.serviceWorker.ready
-
-    // Subscribe to push notifications
-    const subscription = await registration.pushManager.subscribe({
-      userVisibleOnly: true,
-      applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey),
-    })
-
-    const subscriptionData: PushSubscriptionData = {
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
-        auth: this.arrayBufferToBase64(subscription.getKey('auth')!),
-      },
-    }
-
-    // Send subscription to server
-    await this.sendSubscriptionToServer(subscriptionData, channels)
-
-    return subscriptionData
-  }
-
-  /**
-   * Unsubscribe from push notifications
-   */
-  public async unsubscribe(): Promise<void> {
-    const registration = await navigator.serviceWorker.getRegistration()
-    if (!registration) {
-      return
-    }
-
-    const subscription = await registration.pushManager.getSubscription()
-    if (!subscription) {
-      return
-    }
-
-    // Unsubscribe from push service
-    await subscription.unsubscribe()
-
-    // Notify server
-    await this.sendUnsubscribeToServer(subscription.endpoint)
-  }
-
-  /**
-   * Get current push subscription
-   */
-  public async getSubscription(): Promise<Omit<PushSubscriptionData, 'channels'> | null> {
-    if (!isBrowser || !('serviceWorker' in navigator)) return null
-
-    const registration = await navigator.serviceWorker.getRegistration()
-    if (!registration) {
-      return null
-    }
-
-    const subscription = await registration.pushManager.getSubscription()
-    if (!subscription) {
-      return null
-    }
-
-    return {
-      endpoint: subscription.endpoint,
-      keys: {
-        p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
-        auth: this.arrayBufferToBase64(subscription.getKey('auth')!),
-      },
-    }
-  }
-
-  /**
-   * Check if user is currently subscribed
-   */
-  public async isSubscribed(): Promise<boolean> {
-    if (!isBrowser) return false
-    const subscription = await this.getSubscription()
-    return subscription !== null
+  private arrayBufferToBase64(buffer: ArrayBuffer): string {
+    const bytes = new Uint8Array(buffer)
+    const binary = Array.from(bytes).map(b => String.fromCharCode(b)).join('')
+    return window.btoa(binary)
   }
 
   /**
@@ -185,15 +48,15 @@ export class ClientPushManager {
   private async sendSubscriptionToServer(subscription: PushSubscriptionData, channels: string[]): Promise<void> {
     try {
       const response = await fetch(`${this.apiEndpoint}/subscribe`, {
-        method: 'POST',
+        body: JSON.stringify({
+          channels,
+          subscription,
+          userAgent: navigator.userAgent,
+        }),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          subscription,
-          channels,
-          userAgent: navigator.userAgent,
-        }),
+        method: 'POST',
       })
 
       if (!response.ok) {
@@ -211,11 +74,11 @@ export class ClientPushManager {
   private async sendUnsubscribeToServer(endpoint: string): Promise<void> {
     try {
       const response = await fetch(`${this.apiEndpoint}/unsubscribe`, {
-        method: 'POST',
+        body: JSON.stringify({ endpoint }),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({ endpoint }),
+        method: 'POST',
       })
 
       if (!response.ok) {
@@ -244,11 +107,148 @@ export class ClientPushManager {
   }
 
   /**
-   * Convert ArrayBuffer to base64 string
+   * Check current notification permission status
    */
-  private arrayBufferToBase64(buffer: ArrayBuffer): string {
-    const bytes = new Uint8Array(buffer)
-    const binary = Array.from(bytes).map(b => String.fromCharCode(b)).join('')
-    return window.btoa(binary)
+  public getPermissionStatus(): NotificationPermission {
+    if (!isBrowser || typeof Notification === 'undefined') {return 'default'}
+    return Notification.permission
+  }
+
+  /**
+   * Get current push subscription
+   */
+  public async getSubscription(): Promise<null | Omit<PushSubscriptionData, 'channels'>> {
+    if (!isBrowser || !('serviceWorker' in navigator)) {return null}
+
+    const registration = await navigator.serviceWorker.getRegistration()
+    if (!registration) {
+      return null
+    }
+
+    const subscription = await registration.pushManager.getSubscription()
+    if (!subscription) {
+      return null
+    }
+
+    return {
+      endpoint: subscription.endpoint,
+      keys: {
+        auth: this.arrayBufferToBase64(subscription.getKey('auth')!),
+        p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
+      },
+    }
+  }
+
+  /**
+   * Check if user is currently subscribed
+   */
+  public async isSubscribed(): Promise<boolean> {
+    if (!isBrowser) {return false}
+    const subscription = await this.getSubscription()
+    return subscription !== null
+  }
+
+  /**
+   * Check if push notifications are supported
+   */
+  public isSupported(): boolean {
+    if (!isBrowser) {return false}
+
+    return (
+      'serviceWorker' in navigator &&
+      'PushManager' in window &&
+      'Notification' in window
+    )
+  }
+
+  /**
+   * Register service worker
+   */
+  public async registerServiceWorker(): Promise<ServiceWorkerRegistration> {
+    if (!isBrowser || !('serviceWorker' in navigator)) {
+      throw new Error('Service workers are not supported')
+    }
+
+    try {
+      const registration = await navigator.serviceWorker.register(this.serviceWorkerPath)
+      console.log('Service worker registered:', registration)
+      return registration
+    } catch (error) {
+      console.error('Service worker registration failed:', error)
+      throw error
+    }
+  }
+
+  /**
+   * Request notification permission from user
+   */
+  public async requestPermission(): Promise<NotificationPermission> {
+    if (!this.isSupported()) {
+      throw new Error('Push notifications are not supported')
+    }
+
+    return await Notification.requestPermission()
+  }
+
+  /**
+   * Subscribe to push notifications
+   */
+  public async subscribe(channels: string[]): Promise<PushSubscriptionData> {
+    // Check support
+    if (!this.isSupported()) {
+      throw new Error('Push notifications are not supported')
+    }
+
+    // Request permission
+    const permission = await this.requestPermission()
+    if (permission !== 'granted') {
+      throw new Error('Notification permission not granted')
+    }
+
+    // Register service worker
+    const registration = await this.registerServiceWorker()
+
+    // Wait for service worker to be ready
+    await navigator.serviceWorker.ready
+
+    // Subscribe to push notifications
+    const subscription = await registration.pushManager.subscribe({
+      applicationServerKey: this.urlBase64ToUint8Array(this.vapidPublicKey),
+      userVisibleOnly: true,
+    })
+
+    const subscriptionData: PushSubscriptionData = {
+      endpoint: subscription.endpoint,
+      keys: {
+        auth: this.arrayBufferToBase64(subscription.getKey('auth')!),
+        p256dh: this.arrayBufferToBase64(subscription.getKey('p256dh')!),
+      },
+    }
+
+    // Send subscription to server
+    await this.sendSubscriptionToServer(subscriptionData, channels)
+
+    return subscriptionData
+  }
+
+  /**
+   * Unsubscribe from push notifications
+   */
+  public async unsubscribe(): Promise<void> {
+    const registration = await navigator.serviceWorker.getRegistration()
+    if (!registration) {
+      return
+    }
+
+    const subscription = await registration.pushManager.getSubscription()
+    if (!subscription) {
+      return
+    }
+
+    // Unsubscribe from push service
+    await subscription.unsubscribe()
+
+    // Notify server
+    await this.sendUnsubscribeToServer(subscription.endpoint)
   }
 }
