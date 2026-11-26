@@ -1,0 +1,125 @@
+import type { Config } from 'payload'
+
+import { describe, expect, it } from 'vitest'
+
+import type { NotificationsPluginOptions, WebPushConfig } from './types.js'
+
+import { notificationsPlugin } from './index.js'
+
+// The push-subscriptions collection must exist regardless of webPush.enabled,
+// so the generated types and database schema do not depend on whether VAPID
+// keys are configured in the environment that runs `payload generate:types`.
+// Only the push endpoints (and sending) are gated on webPush.enabled.
+
+const bareConfig = (): Config => ({ collections: [], endpoints: [] }) as unknown as Config
+
+const channels: NotificationsPluginOptions['channels'] = [{ id: 'a', name: 'A' }]
+
+const vapid = {
+  vapidPrivateKey: 'private',
+  vapidPublicKey: 'public',
+  vapidSubject: 'mailto:test@example.com',
+}
+
+const apply = (webPush?: WebPushConfig) =>
+  notificationsPlugin({ channels, webPush })(bareConfig())
+
+const slugs = (config: Config) => (config.collections ?? []).map((c) => c.slug)
+
+const endpointPaths = (config: Config) => (config.endpoints ?? []).map((e) => e.path)
+
+describe('push-subscriptions collection registration', () => {
+  it.each([
+    ['webPush omitted', undefined],
+    ['webPush.enabled: false', { ...vapid, enabled: false }],
+    ['webPush.enabled left undefined', { ...vapid }],
+    ['webPush.enabled: true', { ...vapid, enabled: true }],
+  ] as Array<[string, undefined | WebPushConfig]>)(
+    'is registered with %s',
+    (_label, webPush) => {
+      expect(slugs(apply(webPush))).toEqual(['notifications', 'push-subscriptions', 'notification-reads'])
+    },
+  )
+
+  it('is registered by the no-argument plugin call', () => {
+    const result = notificationsPlugin()(bareConfig())
+    expect(slugs(result)).toEqual(['notifications', 'push-subscriptions', 'notification-reads'])
+  })
+
+  it('still applies the pushSubscriptions collection override when web push is disabled', () => {
+    const result = notificationsPlugin({
+      channels,
+      collectionOverrides: {
+        pushSubscriptions: (collection) => ({ ...collection, labels: { plural: 'Devices', singular: 'Device' } }),
+      },
+    })(bareConfig())
+
+    const collection = (result.collections ?? []).find((c) => c.slug === 'push-subscriptions')
+    expect(collection?.labels).toEqual({ plural: 'Devices', singular: 'Device' })
+  })
+})
+
+describe('push endpoints stay gated on webPush.enabled', () => {
+  it.each([
+    ['webPush omitted', undefined],
+    ['webPush.enabled: false', { ...vapid, enabled: false }],
+    ['webPush.enabled left undefined', { ...vapid }],
+  ] as Array<[string, undefined | WebPushConfig]>)('none are registered with %s', (_label, webPush) => {
+    expect(endpointPaths(apply(webPush))).toEqual([])
+  })
+
+  it('are registered with webPush.enabled: true', () => {
+    expect(endpointPaths(apply({ ...vapid, enabled: true }))).toEqual(
+      expect.arrayContaining([
+        '/push-notifications/subscribe',
+        '/push-notifications/unsubscribe',
+        '/push-notifications/vapid-public-key',
+      ]),
+    )
+  })
+
+  it('does not attach the auto-push hook when web push is disabled, even with autoPush: true', () => {
+    const result = apply({ ...vapid, autoPush: true, enabled: false })
+    const notifications = (result.collections ?? []).find((c) => c.slug === 'notifications')
+    expect(notifications?.hooks?.afterChange).toBeUndefined()
+  })
+})
+
+describe('push-subscriptions access when web push is disabled', () => {
+  type AccessFn = (args: { req: { user: unknown } }) => unknown
+  const operations = ['read', 'create', 'update', 'delete'] as const
+
+  const accessOf = (webPush?: WebPushConfig) => {
+    const collection = (apply(webPush).collections ?? []).find((c) => c.slug === 'push-subscriptions')
+    return collection?.access as Record<(typeof operations)[number], AccessFn>
+  }
+
+  it.each([
+    ['webPush omitted', undefined],
+    ['webPush.enabled: false', { ...vapid, enabled: false }],
+  ] as Array<[string, undefined | WebPushConfig]>)('only admins have access with %s', (_label, webPush) => {
+    const access = accessOf(webPush)
+    for (const operation of operations) {
+      expect(access[operation]({ req: { user: null } }), `${operation} anonymous`).toBe(false)
+      expect(access[operation]({ req: { user: { id: 1, role: 'customer' } } }), `${operation} non-admin`).toBe(false)
+      expect(access[operation]({ req: { user: { id: 2, role: 'admin' } } }), `${operation} admin`).toBe(true)
+    }
+  })
+
+  it('keeps the owner-scoped access when web push is enabled', () => {
+    const access = accessOf({ ...vapid, enabled: true })
+    const customer = { id: 1, role: 'customer' }
+    for (const operation of operations) {
+      expect(access[operation]({ req: { user: null } }), `${operation} anonymous`).toBe(false)
+      expect(access[operation]({ req: { user: { id: 2, role: 'admin' } } }), `${operation} admin`).toBe(true)
+    }
+    // Any logged-in user may create; the beforeChange hook binds the row to them.
+    expect(access.create({ req: { user: customer } }), 'create non-admin').toBe(true)
+    // Read, update and delete are limited to the non-admin's own subscriptions.
+    for (const operation of ['read', 'update', 'delete'] as const) {
+      expect(access[operation]({ req: { user: customer } }), `${operation} non-admin`).toEqual({
+        user: { equals: 1 },
+      })
+    }
+  })
+})

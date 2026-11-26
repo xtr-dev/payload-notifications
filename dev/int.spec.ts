@@ -4,8 +4,8 @@ import config from '@payload-config'
 import { rm } from 'fs/promises'
 import { basename } from 'path'
 import { createPayloadRequest, getPayload } from 'payload'
-import webpush from 'web-push'
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
+import webpush from 'web-push'
 
 // The channel ids configured in dev/payload.config.ts — the plugin must turn
 // exactly these into the select options on both generated collections.
@@ -20,7 +20,7 @@ const callEndpoint = async (
   path: string,
   method: string,
   body?: unknown,
-  user?: { id: string | number },
+  user?: { id: number | string },
 ) => {
   const endpoint = resolvedConfig.endpoints.find(
     (e) => e.path === path && e.method === method,
@@ -222,8 +222,8 @@ describe('push subscriptions (webPush.enabled)', () => {
     expect(response.status).toBe(200)
 
     const unchanged = await payload.findByID({
-      collection: 'push-subscriptions',
       id: subscription.id,
+      collection: 'push-subscriptions',
     })
     expect(unchanged.isActive).toBe(true)
 
@@ -236,8 +236,8 @@ describe('push subscriptions (webPush.enabled)', () => {
     expect(ownerResponse.status).toBe(200)
 
     const deactivated = await payload.findByID({
-      collection: 'push-subscriptions',
       id: subscription.id,
+      collection: 'push-subscriptions',
     })
     expect(deactivated.isActive).toBe(false)
   })
@@ -246,5 +246,349 @@ describe('push subscriptions (webPush.enabled)', () => {
     const { docs: users } = await payload.find({ collection: 'users', limit: 1 })
     const response = await callEndpoint('/push-notifications/unsubscribe', 'post', {}, users[0])
     expect(response.status).toBe(400)
+  })
+
+  test('subscribe does not let one user take over another users endpoint', async () => {
+    const { docs: users } = await payload.find({ collection: 'users', limit: 2 })
+    expect(users).toHaveLength(2)
+    const [owner, otherUser] = users
+    const endpoint = 'https://push.example/owned-subscribe-endpoint'
+
+    const subscription = await payload.create({
+      collection: 'push-subscriptions',
+      data: {
+        auth: 'owner-auth',
+        endpoint,
+        isActive: true,
+        p256dh: 'owner-p256dh',
+        user: owner.id,
+      },
+    })
+
+    const response = await callEndpoint(
+      '/push-notifications/subscribe',
+      'post',
+      {
+        channels: ['general'],
+        subscription: {
+          endpoint,
+          keys: { auth: 'attacker-auth', p256dh: 'attacker-p256dh' },
+        },
+        userAgent: 'vitest',
+      },
+      otherUser,
+    )
+    expect(response.status).toBe(403)
+
+    const unchanged = await payload.findByID({
+      id: subscription.id,
+      collection: 'push-subscriptions',
+      depth: 0,
+    })
+    expect(String(unchanged.user)).toBe(String(owner.id))
+    expect(unchanged.auth).toBe('owner-auth')
+    expect(unchanged.p256dh).toBe('owner-p256dh')
+    expect(unchanged.isActive).toBe(true)
+  })
+})
+
+describe('notification audience, access and per-user read state', () => {
+  const message = (text: string) => ({
+    root: {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', text, version: 1 }],
+          direction: 'ltr' as const,
+          format: '' as const,
+          indent: 0,
+          version: 1,
+        },
+      ],
+      direction: 'ltr' as const,
+      format: '' as const,
+      indent: 0,
+      version: 1,
+    },
+  })
+
+  let counter = 0
+  const createMember = async () =>
+    payload.create({
+      collection: 'users',
+      data: { email: `member-${Date.now()}-${counter++}@example.com`, password: 'test', role: 'customer' },
+    })
+
+  const createAdmin = async () =>
+    payload.create({
+      collection: 'users',
+      data: { email: `admin-${Date.now()}-${counter++}@example.com`, password: 'test', role: 'admin' },
+    })
+
+  // Calls a notifications collection endpoint (e.g. POST /:id/read) the way
+  // Payload's REST router would, with the route params it would extract.
+  const callCollectionEndpoint = async (
+    path: string,
+    method: string,
+    id: number | string,
+    user?: { id: number | string },
+  ) => {
+    const endpoint = (payload.collections['notifications'].config.endpoints || []).find(
+      (e) => e.path === path && e.method === method,
+    )
+    expect(endpoint, `endpoint ${method.toUpperCase()} ${path} is registered`).toBeDefined()
+    const request = new Request(`http://localhost:3000/api/notifications/${id}/read`, {
+      method: method.toUpperCase(),
+    })
+    const payloadRequest = await createPayloadRequest({ config, request })
+    if (user) {
+      payloadRequest.user = { ...user, collection: 'users' } as typeof payloadRequest.user
+    }
+    payloadRequest.routeParams = { id, collection: 'notifications' }
+    return endpoint!.handler(payloadRequest)
+  }
+
+  test('audience is derived from the recipient on create, and a broadcast cannot have a recipient', async () => {
+    const member = await createMember()
+    const personal = await payload.create({
+      collection: 'notifications',
+      data: { message: message('p'), recipient: member.id, title: 'Personal' },
+    })
+    const broadcast = await payload.create({
+      collection: 'notifications',
+      data: { message: message('b'), title: 'Broadcast' },
+    })
+    expect(personal.audience).toBe('user')
+    expect(broadcast.audience).toBe('broadcast')
+
+    await expect(
+      payload.create({
+        collection: 'notifications',
+        data: { audience: 'broadcast', message: message('x'), recipient: member.id, title: 'Ambiguous' },
+      }),
+    ).rejects.toThrow()
+  })
+
+  test("members cannot read other members' personal notifications", async () => {
+    const memberA = await createMember()
+    const memberB = await createMember()
+    const forB = await payload.create({
+      collection: 'notifications',
+      data: { message: message('secret'), recipient: memberB.id, title: 'For B only' },
+    })
+    const broadcast = await payload.create({
+      collection: 'notifications',
+      data: { message: message('hello'), title: 'For everyone' },
+    })
+
+    const { docs } = await payload.find({
+      collection: 'notifications',
+      overrideAccess: false,
+      pagination: false,
+      user: memberA,
+    })
+    const ids = docs.map((doc) => doc.id)
+    expect(ids).not.toContain(forB.id)
+    expect(ids).toContain(broadcast.id)
+    for (const doc of docs) {
+      const recipient = typeof doc.recipient === 'object' ? doc.recipient?.id : doc.recipient
+      expect(doc.audience === 'broadcast' || recipient === memberA.id).toBe(true)
+    }
+
+    const asB = await payload.find({
+      collection: 'notifications',
+      overrideAccess: false,
+      user: memberB,
+      where: { id: { equals: forB.id } },
+    })
+    expect(asB.docs).toHaveLength(1)
+  })
+
+  test('only admins can create notifications through the access-checked API', async () => {
+    const memberA = await createMember()
+    const memberB = await createMember()
+    const admin = await createAdmin()
+
+    await expect(
+      payload.create({
+        collection: 'notifications',
+        data: { message: message('click here'), recipient: memberB.id, title: 'Spoofed' },
+        overrideAccess: false,
+        user: memberA,
+      }),
+    ).rejects.toThrow()
+
+    const created = await payload.create({
+      collection: 'notifications',
+      data: { message: message('hi'), recipient: memberB.id, title: 'From admin' },
+      overrideAccess: false,
+      user: admin,
+    })
+    expect(created.id).toBeDefined()
+  })
+
+  test('marking a broadcast read is per member', async () => {
+    const memberA = await createMember()
+    const memberB = await createMember()
+    const broadcast = await payload.create({
+      collection: 'notifications',
+      data: { message: message('news'), title: 'Studio news' },
+    })
+
+    // The shared row itself can no longer be flipped by a member.
+    await expect(
+      payload.update({
+        id: broadcast.id,
+        collection: 'notifications',
+        data: { isRead: true },
+        overrideAccess: false,
+        user: memberA,
+      }),
+    ).rejects.toThrow()
+
+    const response = await callCollectionEndpoint('/:id/read', 'post', broadcast.id, memberA)
+    expect(response.status).toBe(200)
+    expect(await response.json()).toMatchObject({ id: broadcast.id, isRead: true })
+
+    const asA = await payload.findByID({
+      id: broadcast.id,
+      collection: 'notifications',
+      overrideAccess: false,
+      user: memberA,
+    })
+    const asB = await payload.findByID({
+      id: broadcast.id,
+      collection: 'notifications',
+      overrideAccess: false,
+      user: memberB,
+    })
+    expect(asA.isRead).toBe(true)
+    expect(asA.readAt).toBeTruthy()
+    expect(asB.isRead).toBe(false)
+    expect(asB.readAt).toBeNull()
+
+    const listAsB = await payload.find({
+      collection: 'notifications',
+      overrideAccess: false,
+      user: memberB,
+      where: { id: { equals: broadcast.id } },
+    })
+    expect(listAsB.docs[0].isRead).toBe(false)
+
+    // Marking read twice is idempotent, and DELETE marks it unread again.
+    expect((await callCollectionEndpoint('/:id/read', 'post', broadcast.id, memberA)).status).toBe(200)
+    expect((await callCollectionEndpoint('/:id/read', 'delete', broadcast.id, memberA)).status).toBe(200)
+    const unread = await payload.findByID({
+      id: broadcast.id,
+      collection: 'notifications',
+      overrideAccess: false,
+      user: memberA,
+    })
+    expect(unread.isRead).toBe(false)
+  })
+
+  test('read endpoint updates personal notifications for their recipient only', async () => {
+    const memberA = await createMember()
+    const memberB = await createMember()
+    const forA = await payload.create({
+      collection: 'notifications',
+      data: { message: message('a'), recipient: memberA.id, title: 'For A' },
+    })
+
+    expect((await callCollectionEndpoint('/:id/read', 'post', forA.id, memberB)).status).toBe(404)
+    expect((await callCollectionEndpoint('/:id/read', 'post', forA.id)).status).toBe(401)
+
+    const response = await callCollectionEndpoint('/:id/read', 'post', forA.id, memberA)
+    expect(response.status).toBe(200)
+    const stored = await payload.findByID({ id: forA.id, collection: 'notifications' })
+    expect(stored.isRead).toBe(true)
+    expect(stored.readAt).toBeTruthy()
+  })
+
+  test('members can only record their own reads of broadcasts', async () => {
+    const memberA = await createMember()
+    const memberB = await createMember()
+    const forB = await payload.create({
+      collection: 'notifications',
+      data: { message: message('b'), recipient: memberB.id, title: 'For B' },
+    })
+    const broadcast = await payload.create({
+      collection: 'notifications',
+      data: { message: message('b'), title: 'Broadcast' },
+    })
+
+    await expect(
+      payload.create({
+        collection: 'notification-reads',
+        data: { notification: forB.id, readAt: new Date().toISOString(), user: memberA.id },
+        overrideAccess: false,
+        user: memberA,
+      }),
+    ).rejects.toThrow()
+
+    const receipt = await payload.create({
+      collection: 'notification-reads',
+      data: { notification: broadcast.id, readAt: new Date().toISOString(), user: memberB.id },
+      overrideAccess: false,
+      user: memberA,
+    })
+    const receiptUser = typeof receipt.user === 'object' ? receipt.user.id : receipt.user
+    expect(receiptUser).toBe(memberA.id)
+  })
+
+  test("a deleted user's personal notifications never become broadcasts", async () => {
+    const doomed = await createMember()
+    const other = await createMember()
+    const personal = await payload.create({
+      collection: 'notifications',
+      data: { message: message('k'), recipient: doomed.id, title: 'Your booking KC-123 is confirmed' },
+    })
+
+    // Deleting the row directly skips hooks, so the SQL foreign key sets the
+    // recipient to null. The notification must stay personal and hidden.
+    await payload.db.deleteOne({ collection: 'users', where: { id: { equals: doomed.id } } })
+    const orphan = await payload.findByID({ id: personal.id, collection: 'notifications' })
+    expect(orphan.recipient ?? null).toBeNull()
+    expect(orphan.audience).toBe('user')
+
+    const { docs } = await payload.find({
+      collection: 'notifications',
+      overrideAccess: false,
+      pagination: false,
+      user: other,
+    })
+    expect(docs.map((doc) => doc.id)).not.toContain(personal.id)
+  })
+
+  test("deleting a user through Payload removes their notification data", async () => {
+    const doomed = await createMember()
+    const personal = await payload.create({
+      collection: 'notifications',
+      data: { message: message('k'), recipient: doomed.id, title: 'Bye' },
+    })
+    const broadcast = await payload.create({
+      collection: 'notifications',
+      data: { message: message('b'), title: 'Broadcast' },
+    })
+    await payload.create({
+      collection: 'notification-reads',
+      data: { notification: broadcast.id, readAt: new Date().toISOString(), user: doomed.id },
+    })
+
+    await payload.delete({ id: doomed.id, collection: 'users' })
+
+    const remaining = await payload.find({
+      collection: 'notifications',
+      where: { id: { equals: personal.id } },
+    })
+    expect(remaining.docs).toHaveLength(0)
+    const reads = await payload.find({
+      collection: 'notification-reads',
+      where: { notification: { equals: broadcast.id } },
+    })
+    expect(reads.docs).toHaveLength(0)
+    // The broadcast itself is untouched.
+    expect((await payload.findByID({ id: broadcast.id, collection: 'notifications' })).id).toBe(broadcast.id)
   })
 })

@@ -1,6 +1,6 @@
 {
   "name": "@xtr-dev/payload-notifications",
-  "version": "0.0.5",
+  "version": "0.2.0",
   "description": "A PayloadCMS plugin that adds a configurable notifications collection for sending messages with titles, content, and attachable relationship items",
   "license": "MIT",
   "type": "module",
@@ -24,10 +24,12 @@
   "main": "./src/index.ts",
   "types": "./src/index.ts",
   "files": [
-    "dist"
+    "dist",
+    "WEBPUSH.md"
   ],
   "scripts": {
-    "build": "pnpm copyfiles && pnpm build:types && pnpm build:swc",
+    "build": "pnpm copyfiles && pnpm build:types && pnpm build:swc && pnpm build:sw",
+    "build:sw": "node scripts/write-service-worker.mjs",
     "build:swc": "swc ./src -d ./dist --config-file .swcrc --strip-leading-paths",
     "build:types": "tsc --outDir dist --rootDir ./src",
     "clean": "rimraf {dist,*.tsbuildinfo}",
@@ -43,7 +45,7 @@
     "prepublishOnly": "pnpm clean && pnpm build",
     "test": "pnpm test:int",
     "test:e2e": "playwright test",
-    "test:published-exports": "node --input-type=module -e \"await Promise.all(['./dist/index.js', './dist/exports/client.js', './dist/exports/rsc.js'].map((entry) => import(entry)))\"",
+    "test:published-exports": "node --input-type=module -e \"await Promise.all(['./dist/index.js', './dist/exports/client.js', './dist/exports/rsc.js'].map((entry) => import(entry)))\" && node scripts/verify-service-worker.mjs",
     "test:declarations": "node scripts/verify-nodenext-consumer.mjs",
     "test:int": "vitest run",
     "test:unit": "vitest run src"
@@ -79,7 +81,6 @@
     "@types/node": "^22.5.4",
     "@types/react": "19.1.8",
     "@types/react-dom": "19.1.6",
-    "@types/web-push": "^3.6.3",
     "copyfiles": "2.4.1",
     "cross-env": "^7.0.3",
     "eslint": "^9.23.0",
@@ -124,7 +125,8 @@
         "import": "./dist/exports/rsc.js",
         "types": "./dist/exports/rsc.d.ts",
         "default": "./dist/exports/rsc.js"
-      }
+      },
+      "./sw.js": "./dist/sw.js"
     },
     "main": "./dist/index.js",
     "types": "./dist/index.d.ts"
@@ -138,6 +140,7 @@
   },
   "registry": "https://registry.npmjs.org/",
   "dependencies": {
+    "@types/web-push": "^3.6.3",
     "web-push": "^3.6.7"
   },
   "packageManager": "pnpm@10.12.4+sha512.5ea8b0deed94ed68691c9bad4c955492705c5eeb8a87ef86bc62c74a26b037b08ff9570f108b2e4dbd1dd1a9186fea925e527f141c648e85af45631074680184"
