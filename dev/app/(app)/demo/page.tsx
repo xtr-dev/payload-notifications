@@ -1,14 +1,15 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
+
 import {ClientPushManager} from "../../../../src/client/push-manager"
 
 // Available channels (should match the configuration in payload.config.ts)
 const AVAILABLE_CHANNELS = [
-  { id: 'general', name: 'General Notifications', description: 'General updates and announcements', defaultEnabled: true },
-  { id: 'orders', name: 'Order Updates', description: 'Order status changes and shipping notifications', defaultEnabled: true },
-  { id: 'products', name: 'Product Updates', description: 'New products, restocks, and price changes', defaultEnabled: false },
-  { id: 'marketing', name: 'Marketing & Promotions', description: 'Special offers, sales, and promotional content', defaultEnabled: false },
+  { id: 'general', name: 'General Notifications', defaultEnabled: true, description: 'General updates and announcements' },
+  { id: 'orders', name: 'Order Updates', defaultEnabled: true, description: 'Order status changes and shipping notifications' },
+  { id: 'products', name: 'Product Updates', defaultEnabled: false, description: 'New products, restocks, and price changes' },
+  { id: 'marketing', name: 'Marketing & Promotions', defaultEnabled: false, description: 'Special offers, sales, and promotional content' },
 ]
 
 export default function DemoPage() {
@@ -30,12 +31,14 @@ export default function DemoPage() {
     setPermission(manager.getPermissionStatus())
 
     if (manager.isSupported()) {
-      manager.isSubscribed().then(setIsSubscribed)
+      manager.isSubscribed().then(setIsSubscribed).catch((error: unknown) => {
+        console.error('Failed to check push subscription status:', error)
+      })
     }
   }, [])
 
   const handleSubscribe = async () => {
-    if (!pushManager) return
+    if (!pushManager) {return}
 
     setLoading(true)
     try {
@@ -43,16 +46,16 @@ export default function DemoPage() {
 
       // Save the subscription to Payload's database using the plugin's API endpoint
       const response = await fetch('/api/push-notifications/subscribe', {
-        method: 'POST',
+        body: JSON.stringify({
+          channels: selectedChannels,
+          subscription,
+          user: 'customer@example.com', // Associate with the demo customer user
+          userAgent: navigator.userAgent,
+        }),
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          subscription: subscription,
-          user: 'customer@example.com', // Associate with the demo customer user
-          userAgent: navigator.userAgent,
-          channels: selectedChannels,
-        }),
+        method: 'POST',
       })
       if (response.ok) {
         setIsSubscribed(true)
@@ -70,7 +73,7 @@ export default function DemoPage() {
   }
 
   const handleUnsubscribe = async () => {
-    if (!pushManager) return
+    if (!pushManager) {return}
 
     setLoading(true)
     try {
@@ -85,10 +88,10 @@ export default function DemoPage() {
   }
 
   return (
-    <div style={{ padding: '2rem', maxWidth: '800px', margin: '0 auto' }}>
+    <div style={{ margin: '0 auto', maxWidth: '800px', padding: '2rem' }}>
       <h1>Payload Notifications Plugin Demo</h1>
 
-      <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '8px' }}>
+      <div style={{ border: '1px solid #ccc', borderRadius: '8px', marginBottom: '2rem', padding: '1rem' }}>
         <h2>🔔 Web Push Notifications</h2>
 
         {!isSupported ? (
@@ -101,9 +104,9 @@ export default function DemoPage() {
             <p><strong>Permission:</strong> {permission}</p>
 
             {!isSubscribed && (
-              <div style={{ marginTop: '1rem', marginBottom: '1rem' }}>
-                <h3 style={{ marginBottom: '0.5rem', fontSize: '1rem' }}>📢 Select Notification Channels</h3>
-                <p style={{ marginBottom: '1rem', fontSize: '0.9rem', color: '#666' }}>
+              <div style={{ marginBottom: '1rem', marginTop: '1rem' }}>
+                <h3 style={{ fontSize: '1rem', marginBottom: '0.5rem' }}>📢 Select Notification Channels</h3>
+                <p style={{ color: '#666', fontSize: '0.9rem', marginBottom: '1rem' }}>
                   Choose which types of notifications you want to receive:
                 </p>
                 <div style={{ display: 'grid', gap: '0.75rem' }}>
@@ -111,18 +114,17 @@ export default function DemoPage() {
                     <label
                       key={channel.id}
                       style={{
-                        display: 'flex',
                         alignItems: 'flex-start',
-                        gap: '0.5rem',
-                        padding: '0.75rem',
+                        backgroundColor: selectedChannels.includes(channel.id) ? '#f0f9ff' : '#fafafa',
                         border: '1px solid #e0e0e0',
                         borderRadius: '6px',
-                        backgroundColor: selectedChannels.includes(channel.id) ? '#f0f9ff' : '#fafafa',
-                        cursor: 'pointer'
+                        cursor: 'pointer',
+                        display: 'flex',
+                        gap: '0.5rem',
+                        padding: '0.75rem'
                       }}
                     >
                       <input
-                        type="checkbox"
                         checked={selectedChannels.includes(channel.id)}
                         onChange={(e) => {
                           if (e.target.checked) {
@@ -132,12 +134,13 @@ export default function DemoPage() {
                           }
                         }}
                         style={{ marginTop: '0.2rem' }}
+                        type="checkbox"
                       />
                       <div>
                         <div style={{ fontWeight: '500', marginBottom: '0.25rem' }}>
                           {channel.name}
                         </div>
-                        <div style={{ fontSize: '0.85rem', color: '#666' }}>
+                        <div style={{ color: '#666', fontSize: '0.85rem' }}>
                           {channel.description}
                         </div>
                       </div>
@@ -147,19 +150,19 @@ export default function DemoPage() {
               </div>
             )}
 
-            <div style={{ marginTop: '1rem', display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <div style={{ display: 'flex', flexWrap: 'wrap', gap: '1rem', marginTop: '1rem' }}>
               {!isSubscribed ? (
                 <button
-                  onClick={handleSubscribe}
                   disabled={loading || selectedChannels.length === 0}
+                  onClick={handleSubscribe}
                   style={{
-                    padding: '0.75rem 1.5rem',
                     backgroundColor: selectedChannels.length === 0 ? '#ccc' : '#007FFF',
-                    color: 'white',
                     border: 'none',
                     borderRadius: '4px',
+                    color: 'white',
                     cursor: loading || selectedChannels.length === 0 ? 'not-allowed' : 'pointer',
-                    opacity: loading || selectedChannels.length === 0 ? 0.6 : 1
+                    opacity: loading || selectedChannels.length === 0 ? 0.6 : 1,
+                    padding: '0.75rem 1.5rem'
                   }}
                 >
                   {loading ? 'Subscribing...' : selectedChannels.length === 0 ? 'Select at least one channel' : 'Enable Notifications'}
@@ -167,16 +170,16 @@ export default function DemoPage() {
               ) : (
                 <>
                   <button
-                    onClick={handleUnsubscribe}
                     disabled={loading}
+                    onClick={handleUnsubscribe}
                     style={{
-                      padding: '0.75rem 1.5rem',
                       backgroundColor: '#dc3545',
-                      color: 'white',
                       border: 'none',
                       borderRadius: '4px',
+                      color: 'white',
                       cursor: loading ? 'not-allowed' : 'pointer',
-                      opacity: loading ? 0.6 : 1
+                      opacity: loading ? 0.6 : 1,
+                      padding: '0.75rem 1.5rem'
                     }}
                   >
                     {loading ? 'Unsubscribing...' : 'Disable Notifications'}
@@ -188,7 +191,7 @@ export default function DemoPage() {
         )}
       </div>
 
-      <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '8px' }}>
+      <div style={{ border: '1px solid #ccc', borderRadius: '8px', marginBottom: '2rem', padding: '1rem' }}>
         <h2>📱 Admin Panel Features</h2>
         <p>The notifications plugin adds the following to your Payload admin panel:</p>
         <ul>
@@ -201,19 +204,19 @@ export default function DemoPage() {
         </ul>
       </div>
 
-      <div style={{ marginBottom: '2rem', padding: '1rem', border: '2px solid #28a745', borderRadius: '8px', backgroundColor: '#f8fff8' }}>
+      <div style={{ backgroundColor: '#f8fff8', border: '2px solid #28a745', borderRadius: '8px', marginBottom: '2rem', padding: '1rem' }}>
         <h2 style={{ color: '#28a745', marginBottom: '1rem' }}>🚀 Try Automatic Push Notifications</h2>
-        <div style={{ padding: '0.75rem', backgroundColor: '#fff3cd', borderRadius: '4px', marginBottom: '1rem', border: '1px solid #ffeaa7' }}>
+        <div style={{ backgroundColor: '#fff3cd', border: '1px solid #ffeaa7', borderRadius: '4px', marginBottom: '1rem', padding: '0.75rem' }}>
           <strong>⚠️ Important:</strong> You must be signed in to subscribe to push notifications. The subscription associates with your user account.
         </div>
         <p style={{ marginBottom: '1rem' }}>
-          <strong>Step 1:</strong> <a href="/admin/login" target="_blank" style={{ color: '#007FFF' }}>Sign in to the admin panel</a> first (dev@payloadcms.com / test)
+          <strong>Step 1:</strong> <a href="/admin/login" style={{ color: '#007FFF' }} target="_blank">Sign in to the admin panel</a> first (dev@payloadcms.com / test)
         </p>
         <p style={{ marginBottom: '1rem' }}>
           <strong>Step 2:</strong> Return here and subscribe to push notifications above ↑
         </p>
         <p style={{ marginBottom: '1rem' }}>
-          <strong>Step 3:</strong> Go to the <a href="/admin" target="_blank" style={{ color: '#007FFF' }}>admin panel</a> and create a new notification
+          <strong>Step 3:</strong> Go to the <a href="/admin" style={{ color: '#007FFF' }} target="_blank">admin panel</a> and create a new notification
         </p>
         <p style={{ marginBottom: '1rem' }}>
           <strong>Step 4:</strong> Set the recipient to "customer@example.com" (the test user)
@@ -224,7 +227,7 @@ export default function DemoPage() {
         <p style={{ marginBottom: '1rem' }}>
           <strong>Step 6:</strong> Save the notification and watch for an automatic push notification! 🎉
         </p>
-        <div style={{ padding: '0.75rem', backgroundColor: '#e7f3ff', borderRadius: '4px', fontSize: '0.9rem' }}>
+        <div style={{ backgroundColor: '#e7f3ff', borderRadius: '4px', fontSize: '0.9rem', padding: '0.75rem' }}>
           <strong>💡 How it works:</strong> When you create a notification in the admin panel, the plugin automatically:
           <ul style={{ margin: '0.5rem 0', paddingLeft: '1.5rem' }}>
             <li>Extracts the title and message content</li>
@@ -235,7 +238,7 @@ export default function DemoPage() {
         </div>
       </div>
 
-      <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '8px' }}>
+      <div style={{ border: '1px solid #ccc', borderRadius: '8px', marginBottom: '2rem', padding: '1rem' }}>
         <h2>🚀 API Endpoints</h2>
         <p>The plugin automatically creates these API endpoints for web push:</p>
         <ul>
@@ -246,7 +249,7 @@ export default function DemoPage() {
         </ul>
       </div>
 
-      <div style={{ marginBottom: '2rem', padding: '1rem', border: '1px solid #ccc', borderRadius: '8px' }}>
+      <div style={{ border: '1px solid #ccc', borderRadius: '8px', marginBottom: '2rem', padding: '1rem' }}>
         <h2>💡 Getting Started</h2>
         <ol>
           <li>Generate VAPID keys: <code>npx web-push generate-vapid-keys</code></li>
@@ -257,7 +260,7 @@ export default function DemoPage() {
         </ol>
       </div>
 
-      <div style={{ padding: '1rem', backgroundColor: '#f8f9fa', borderRadius: '8px' }}>
+      <div style={{ backgroundColor: '#f8f9fa', borderRadius: '8px', padding: '1rem' }}>
         <h3>📋 Sample Data</h3>
         <p>This demo includes:</p>
         <ul>

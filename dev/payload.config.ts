@@ -1,13 +1,13 @@
 
+import {sqliteAdapter} from "@payloadcms/db-sqlite"
 import { lexicalEditor } from '@payloadcms/richtext-lexical'
+import { notificationsPlugin } from '@xtr-dev/payload-notifications'
 import path from 'path'
 import { buildConfig } from 'payload'
 import sharp from 'sharp'
 import { fileURLToPath } from 'url'
 
 import {seed} from "./seed"
-import { notificationsPlugin } from '@xtr-dev/payload-notifications'
-import {sqliteAdapter} from "@payloadcms/db-sqlite"
 
 const filename = fileURLToPath(import.meta.url)
 const dirname = path.dirname(filename)
@@ -26,19 +26,19 @@ export default buildConfig({
     // Users collection with roles for authentication
     {
       slug: 'users',
-      auth: true,
       admin: {
         useAsTitle: 'email',
       },
+      auth: true,
       fields: [
         {
           name: 'role',
           type: 'select',
+          defaultValue: 'customer',
           options: [
             { label: 'Admin', value: 'admin' },
             { label: 'Customer', value: 'customer' },
           ],
-          defaultValue: 'customer',
           required: true,
         },
         {
@@ -89,10 +89,10 @@ export default buildConfig({
         }
       ],
       webPush: {
-        enabled: true,
         autoPush: true, // Enable automatic push notifications
-        vapidPublicKey: process.env.VAPID_PUBLIC_KEY || 'BMrF5MbHcaEo6w4lPjG9m3BvONvFPfz7jLJ9t0F9yJGzSI3ZUHQj9fNUP7w2D8h1kI4x3YzJ1a4f0nS5g6t2F9L',
+        enabled: true,
         vapidPrivateKey: process.env.VAPID_PRIVATE_KEY || 'your-private-key-here',
+        vapidPublicKey: process.env.VAPID_PUBLIC_KEY || 'BMrF5MbHcaEo6w4lPjG9m3BvONvFPfz7jLJ9t0F9yJGzSI3ZUHQj9fNUP7w2D8h1kI4x3YzJ1a4f0nS5g6t2F9L',
         vapidSubject: 'mailto:test@example.com',
         // Custom notification transformer for demo
         transformNotification: (notification: any) => {
@@ -105,7 +105,7 @@ export default buildConfig({
             notification.message.forEach((block: any) => {
               if (block.children && Array.isArray(block.children)) {
                 block.children.forEach((child: any) => {
-                  if (child.text) textParts.push(child.text)
+                  if (child.text) {textParts.push(child.text)}
                 })
               }
             })
@@ -115,21 +115,21 @@ export default buildConfig({
           }
 
           return {
-            title: `🔔 ${title}`,
-            body,
-            icon: '/icons/notification-icon.png',
+            actions: [
+              { action: 'view', icon: '/icons/view.png', title: 'View in Admin' },
+              { action: 'dismiss', icon: '/icons/dismiss.png', title: 'Dismiss' }
+            ],
             badge: '/icons/notification-badge.png',
+            body,
             data: {
+              createdAt: notification.createdAt,
               notificationId: notification.id,
               url: `/admin/collections/notifications/${notification.id}`,
-              createdAt: notification.createdAt,
             },
-            actions: [
-              { action: 'view', title: 'View in Admin', icon: '/icons/view.png' },
-              { action: 'dismiss', title: 'Dismiss', icon: '/icons/dismiss.png' }
-            ],
-            tag: `notification-${notification.id}`,
+            icon: '/icons/notification-icon.png',
             requireInteraction: false,
+            tag: `notification-${notification.id}`,
+            title: `🔔 ${title}`,
           }
         }
       }

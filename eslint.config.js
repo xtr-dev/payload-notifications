@@ -27,6 +27,9 @@ export default [
   {
     rules: {
       'no-restricted-exports': 'off',
+      // Deprecated upstream (jsx-a11y no longer recommends it): screen readers announce
+      // emoji natively. It only flags decorative emoji in the dev app's demo pages.
+      'jsx-a11y/accessible-emoji': 'off',
     },
   },
   {
@@ -36,7 +39,7 @@ export default [
         ecmaVersion: 'latest',
         projectService: {
           maximumDefaultProjectFileMatchCount_THIS_WILL_SLOW_DOWN_LINTING: 40,
-          allowDefaultProject: ['scripts/*.ts', '*.js', '*.mjs', '*.spec.ts', 'src/*.spec.ts', '*.d.ts'],
+          allowDefaultProject: ['scripts/*.ts', 'scripts/*.mjs', '*.js', '*.mjs', '*.spec.ts', 'src/*.spec.ts', 'src/*/*.spec.ts', '*.d.ts'],
         },
         // projectService: true,
         tsconfigRootDir: import.meta.dirname,

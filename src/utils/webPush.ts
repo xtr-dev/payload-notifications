@@ -1,6 +1,8 @@
-import webpush from 'web-push'
 import type { Payload } from 'payload'
-import type { WebPushConfig, PushSubscription } from '../types.js'
+
+import webpush from 'web-push'
+
+import type { PushSubscription, WebPushConfig } from '../types.js'
 
 /**
  * Thrown when subscribe is asked to write an endpoint owned by another user.
@@ -18,8 +20,8 @@ export class PushSubscriptionOwnershipError extends Error {
  */
 export class WebPushManager {
   private config: WebPushConfig
-  private payload: Payload
   private initialized = false
+  private payload: Payload
 
   constructor(config: WebPushConfig, payload: Payload) {
     this.config = config
@@ -27,10 +29,17 @@ export class WebPushManager {
   }
 
   /**
+   * Get VAPID public key for client-side subscription
+   */
+  public getVapidPublicKey(): string {
+    return this.config.vapidPublicKey
+  }
+
+  /**
    * Initialize web-push with VAPID details
    */
   public init(): void {
-    if (this.initialized) return
+    if (this.initialized) {return}
 
     webpush.setVapidDetails(
       this.config.vapidSubject,
@@ -46,7 +55,7 @@ export class WebPushManager {
    */
   public async sendNotification(
     subscription: PushSubscription,
-    payload: string | Buffer,
+    payload: Buffer | string,
     options?: webpush.RequestOptions
   ): Promise<webpush.SendResult> {
     this.init()
@@ -68,21 +77,21 @@ export class WebPushManager {
    * Send push notification to all active subscriptions for a recipient
    */
   public async sendToRecipient(
-    recipientId: string|number,
+    recipientId: number|string,
     title: string,
     body: string,
     options?: {
-      icon?: string
+      actions?: Array<{ action: string; icon?: string; title: string }>
       badge?: string
-      image?: string
-      data?: any
-      actions?: Array<{ action: string; title: string; icon?: string }>
-      tag?: string
-      requireInteraction?: boolean
       channel?: string
-      recipientType?: 'user' | 'text' | 'email'
+      data?: any
+      icon?: string
+      image?: string
+      recipientType?: 'email' | 'text' | 'user'
+      requireInteraction?: boolean
+      tag?: string
     }
-  ): Promise<Array<{ success: boolean; error?: any }>> {
+  ): Promise<Array<{ error?: any; success: boolean }>> {
     // Build query conditions for filtering subscriptions based on recipient type
     const whereConditions: any[] = [
       { isActive: { equals: true } },
@@ -121,17 +130,17 @@ export class WebPushManager {
     }
 
     const notificationPayload = JSON.stringify({
-      title,
       body,
+      title,
       // No icon/badge fallback: the package ships no images, and an absent
       // value lets the service worker's ?icon=&badge= defaults apply.
-      icon: options?.icon,
-      badge: options?.badge,
-      image: options?.image,
-      data: options?.data,
       actions: options?.actions,
-      tag: options?.tag,
+      badge: options?.badge,
+      data: options?.data,
+      icon: options?.icon,
+      image: options?.image,
       requireInteraction: options?.requireInteraction || false,
+      tag: options?.tag,
       timestamp: Date.now(),
     })
 
@@ -141,8 +150,8 @@ export class WebPushManager {
           const pushSub: PushSubscription = {
             endpoint: sub.endpoint,
             keys: {
-              p256dh: sub.p256dh,
               auth: sub.auth,
+              p256dh: sub.p256dh,
             },
           }
 
@@ -153,12 +162,12 @@ export class WebPushManager {
           if (error.statusCode === 410 || error.statusCode === 404) {
             // Mark subscription as inactive
             await this.payload.update({
-              collection: 'push-subscriptions',
               id: sub.id,
+              collection: 'push-subscriptions',
               data: { isActive: false },
             })
           }
-          return { success: false, error }
+          return { error, success: false }
         }
       })
     )
@@ -166,7 +175,7 @@ export class WebPushManager {
     return results.map((result) =>
       result.status === 'fulfilled'
         ? result.value
-        : { success: false, error: result.reason }
+        : { error: result.reason, success: false }
     )
   }
 
@@ -179,16 +188,16 @@ export class WebPushManager {
     title: string,
     body: string,
     options?: {
-      icon?: string
+      actions?: Array<{ action: string; icon?: string; title: string }>
       badge?: string
-      image?: string
-      data?: any
-      actions?: Array<{ action: string; title: string; icon?: string }>
-      tag?: string
-      requireInteraction?: boolean
       channel?: string
+      data?: any
+      icon?: string
+      image?: string
+      requireInteraction?: boolean
+      tag?: string
     }
-  ): Promise<Array<{ success: boolean; error?: any }>> {
+  ): Promise<Array<{ error?: any; success: boolean }>> {
     return this.sendToRecipient(userId, title, body, {
       ...options,
       recipientType: 'user'
@@ -203,7 +212,7 @@ export class WebPushManager {
    * API calls have no request context, so collection access does not apply.
    */
   public async subscribe(
-    userId: string | number,
+    userId: number | string,
     subscription: PushSubscription,
     userAgent?: string,
     channels?: string[]
@@ -211,11 +220,11 @@ export class WebPushManager {
     try {
       const existing = await this.payload.find({
         collection: 'push-subscriptions',
+        depth: 0,
+        limit: 1,
         where: {
           endpoint: { equals: subscription.endpoint },
         },
-        limit: 1,
-        depth: 0,
       })
 
       // userId and channels are cast to `any` below because a consumer's generated
@@ -226,7 +235,7 @@ export class WebPushManager {
         const existingUser = existing.docs[0].user
         const ownerId =
           existingUser != null && typeof existingUser === 'object' && 'id' in existingUser
-            ? (existingUser as { id: string | number }).id
+            ? (existingUser as { id: number | string }).id
             : existingUser
 
         if (String(ownerId) !== String(userId)) {
@@ -234,28 +243,28 @@ export class WebPushManager {
         }
 
         await this.payload.update({
-          collection: 'push-subscriptions',
           id: existing.docs[0].id,
+          collection: 'push-subscriptions',
           data: {
-            user: userId as any,
-            p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
-            userAgent,
             channels: channels as any,
             isActive: true,
+            p256dh: subscription.keys.p256dh,
+            user: userId as any,
+            userAgent,
           },
         })
       } else {
         await this.payload.create({
           collection: 'push-subscriptions',
           data: {
-            user: userId as any,
-            endpoint: subscription.endpoint,
-            p256dh: subscription.keys.p256dh,
             auth: subscription.keys.auth,
-            userAgent,
             channels: channels as any,
+            endpoint: subscription.endpoint,
             isActive: true,
+            p256dh: subscription.keys.p256dh,
+            user: userId as any,
+            userAgent,
           },
         })
       }
@@ -272,17 +281,17 @@ export class WebPushManager {
    * Deactivate a push subscription, scoped to the owning user so one user
    * cannot deactivate another user's subscription by supplying their endpoint.
    */
-  public async unsubscribe(userId: string | number, endpoint: string): Promise<void> {
+  public async unsubscribe(userId: number | string, endpoint: string): Promise<void> {
     try {
       const subscription = await this.payload.find({
         collection: 'push-subscriptions',
+        limit: 1,
         where: {
           and: [
             { endpoint: { equals: endpoint } },
             { user: { equals: userId } },
           ],
         },
-        limit: 1,
       })
 
       if (subscription.docs.length === 0) {
@@ -290,20 +299,13 @@ export class WebPushManager {
       }
 
       await this.payload.update({
-        collection: 'push-subscriptions',
         id: subscription.docs[0].id,
+        collection: 'push-subscriptions',
         data: { isActive: false },
       })
     } catch (error) {
       console.error('Failed to unsubscribe:', error)
       throw error
     }
-  }
-
-  /**
-   * Get VAPID public key for client-side subscription
-   */
-  public getVapidPublicKey(): string {
-    return this.config.vapidPublicKey
   }
 }

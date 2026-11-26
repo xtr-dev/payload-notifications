@@ -6,10 +6,10 @@ import { WebPushManager } from './webPush'
 
 const notification = {
   id: 42,
-  title: 'Booking confirmed',
-  message: [{ type: 'paragraph', children: [{ text: 'See you on Friday.' }] }],
   createdAt: '2026-01-01T00:00:00.000Z',
+  message: [{ type: 'paragraph', children: [{ text: 'See you on Friday.' }] }],
   recipient: 7,
+  title: 'Booking confirmed',
 }
 
 describe('defaultNotificationTransformer', () => {
@@ -46,25 +46,25 @@ describe('autoPush payload with the default transformer', () => {
   })
 
   const webPush = {
-    enabled: true,
     autoPush: true,
-    vapidPublicKey: 'public-key',
+    enabled: true,
     vapidPrivateKey: 'private-key',
+    vapidPublicKey: 'public-key',
     vapidSubject: 'mailto:test@example.com',
   }
 
-  const subscription = { id: 1, endpoint: 'https://push.example/1', p256dh: 'p', auth: 'a' }
+  const subscription = { id: 1, auth: 'a', endpoint: 'https://push.example/1', p256dh: 'p' }
 
   const runAfterChange = async (
-    options: Partial<typeof webPush> & {
+    options: {
       findSubscriptions?: () => Promise<unknown[]>
       notificationUrl?: string
-    },
+    } & Partial<typeof webPush>,
   ) => {
     const sent: string[] = []
-    vi.spyOn(WebPushManager.prototype, 'sendNotification').mockImplementation(async (_sub, body) => {
+    vi.spyOn(WebPushManager.prototype, 'sendNotification').mockImplementation((_sub, body) => {
       sent.push(body)
-      return {} as never
+      return Promise.resolve({} as never)
     })
     vi.spyOn(console, 'log').mockImplementation(() => undefined)
     const collection = createNotificationsCollection({
@@ -73,7 +73,7 @@ describe('autoPush payload with the default transformer', () => {
     })
     const hook = collection.hooks?.afterChange?.[0] as (args: unknown) => Promise<unknown>
     const payload = {
-      find: vi.fn(async () => ({ docs: [subscription] })),
+      find: vi.fn(() => Promise.resolve({ docs: [subscription] })),
       update: vi.fn(),
     }
     await hook({ doc: notification, operation: 'create', req: { payload } })
@@ -89,7 +89,7 @@ describe('autoPush payload with the default transformer', () => {
   })
 
   test('the findSubscriptions path adds no icon or badge fallback either', async () => {
-    const pushed = await runAfterChange({ findSubscriptions: async () => [subscription] })
+    const pushed = await runAfterChange({ findSubscriptions: () => Promise.resolve([subscription]) })
     expect(pushed.icon).toBeUndefined()
     expect(pushed.badge).toBeUndefined()
     expect(pushed.data.url).toBe('/')

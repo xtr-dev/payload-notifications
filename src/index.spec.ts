@@ -48,7 +48,7 @@ describe('notificationsPlugin with no arguments', () => {
 describe('notificationsPlugin preserves the host config', () => {
   it('keeps existing top-level state, collections and endpoints, and appends its own without mutating the input', () => {
     const existingCollection = { slug: 'existing-collection', fields: [] }
-    const existingEndpoint = { path: '/existing', method: 'get', handler: async () => new Response() }
+    const existingEndpoint = { handler: () => new Response(), method: 'get', path: '/existing' }
     const inputCollections = [existingCollection]
     const inputEndpoints = [existingEndpoint]
     const input = {

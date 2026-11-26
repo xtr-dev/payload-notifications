@@ -1,7 +1,9 @@
 import type { Access, CollectionConfig, Field, Where } from 'payload'
+
 import type { NotificationsPluginOptions } from '../types.js'
-import { WebPushManager } from '../utils/webPush.js'
+
 import { defaultNotificationTransformer } from '../utils/richTextExtractor.js'
+import { WebPushManager } from '../utils/webPush.js'
 import {
   applyBroadcastReadState,
   deriveAudience,
@@ -17,8 +19,8 @@ const isAdminUser = (user: any) => Boolean(user?.role === 'admin')
 export function createNotificationsCollection(options: NotificationsPluginOptions): CollectionConfig {
   const slug = 'notifications'
   const labels = {
-    singular: 'Notification',
     plural: 'Notifications',
+    singular: 'Notification',
   }
 
   if (options.channels.length === 0) {
@@ -33,8 +35,8 @@ export function createNotificationsCollection(options: NotificationsPluginOption
   // deleted (ON DELETE SET NULL on SQL adapters), so "no recipient" would turn
   // a deleted user's personal notifications into broadcasts for everyone.
   const ownOrBroadcast: Access = ({ req }) => {
-    if (!req.user) return false
-    if (isAdminUser(req.user)) return true
+    if (!req.user) {return false}
+    if (isAdminUser(req.user)) {return true}
     const own: Where = { recipient: { equals: req.user.id } }
     const broadcast: Where = { audience: { equals: 'broadcast' } }
     return { or: [own, broadcast] }
@@ -45,8 +47,8 @@ export function createNotificationsCollection(options: NotificationsPluginOption
   // isRead/readAt cannot be a member's read state; members record broadcast
   // reads as notification-reads receipts (see POST /:id/read) instead.
   const ownPersonal: Access = ({ req }) => {
-    if (!req.user) return false
-    if (isAdminUser(req.user)) return true
+    if (!req.user) {return false}
+    if (isAdminUser(req.user)) {return true}
     return { recipient: { equals: req.user.id } }
   }
 
@@ -56,8 +58,8 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     // or by admins. Letting any signed-in user create them would let one user
     // send messages to another from the site's own inbox.
     create: ({ req }: { req: any }) => isAdminUser(req.user),
-    update: ownPersonal,
     delete: ({ req }: { req: any }) => isAdminUser(req.user),
+    update: ownPersonal,
   }
 
   // Build core fields
@@ -65,52 +67,52 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     {
       name: 'title',
       type: 'text',
-      label: 'Title',
       access: {
         update: adminOnlyFieldUpdate,
       },
-      required: true,
       admin: {
         description: 'The notification title that will be displayed to users',
       },
+      label: 'Title',
+      required: true,
     },
     {
       name: 'message',
       type: 'richText',
-      label: 'Message',
       access: {
         update: adminOnlyFieldUpdate,
       },
-      required: true,
       admin: {
         description: 'The notification message content',
       },
+      label: 'Message',
+      required: true,
     },
     {
       name: 'recipient',
       type: 'relationship',
-      relationTo: 'users',
-      label: 'Recipient',
       access: {
         update: adminOnlyFieldUpdate,
       },
-      required: false,
       admin: {
         description: 'The user who should receive this notification (optional if using custom recipient fields)',
       },
+      label: 'Recipient',
+      relationTo: 'users',
+      required: false,
     },
     {
       name: 'audience',
       type: 'select',
-      label: 'Audience',
       access: {
         update: adminOnlyFieldUpdate,
       },
-      index: true,
       admin: {
         description: 'Who can see this notification. Left empty on create, it becomes "Broadcast" when there is no recipient and "Recipient only" otherwise.',
         position: 'sidebar',
       },
+      index: true,
+      label: 'Audience',
       options: [
         { label: 'Recipient only', value: 'user' },
         { label: 'Broadcast to everyone', value: 'broadcast' },
@@ -119,53 +121,52 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     {
       name: 'channel',
       type: 'select',
+      access: {
+        update: adminOnlyFieldUpdate,
+      },
+      admin: {
+        description: 'The notification channel - only subscribers to this channel will receive the notification',
+        position: 'sidebar',
+      },
       label: 'Channel',
       options: options.channels.map(channel => ({
         label: channel.name,
         value: channel.id,
       })),
-      access: {
-        update: adminOnlyFieldUpdate,
-      },
       required: false,
-      admin: {
-        description: 'The notification channel - only subscribers to this channel will receive the notification',
-        position: 'sidebar',
-      },
     },
     {
       name: 'isRead',
       type: 'checkbox',
-      label: 'Read',
-      defaultValue: false,
       admin: {
         description: 'Whether the recipient has read this notification. For broadcasts, reads return the requesting user\'s own read state.',
         position: 'sidebar',
       },
+      defaultValue: false,
+      label: 'Read',
     },
     {
       name: 'readAt',
       type: 'date',
-      label: 'Read At',
       admin: {
+        condition: (_: any, siblingData: any) => siblingData?.isRead,
         description: 'When this notification was marked as read',
         position: 'sidebar',
-        condition: (_: any, siblingData: any) => siblingData?.isRead,
       },
+      label: 'Read At',
     },
   ]
 
   const config: CollectionConfig = {
     slug,
-    labels,
+    access,
     admin: {
-      useAsTitle: 'title',
       defaultColumns: ['title', 'audience', 'recipient', 'isRead', 'createdAt'],
       description: 'Manage user notifications and messaging',
+      useAsTitle: 'title',
     },
-    fields: allFields,
-    access,
     endpoints: markNotificationReadEndpoints,
+    fields: allFields,
     hooks: {
       afterDelete: [
         async ({ id, req }) => {
@@ -179,6 +180,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       afterOperation: [applyBroadcastReadState],
       beforeValidate: [deriveAudience],
     },
+    labels,
     timestamps: true,
   }
 
@@ -189,7 +191,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
       afterChange: [
         async ({ doc, operation, req }) => {
           // Only send push notifications for new notifications
-          if (operation !== 'create') return
+          if (operation !== 'create') {return}
 
           try {
             const webPushConfig = options.webPush!
@@ -203,7 +205,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
             console.log('[Notifications Plugin] Sending push notification for notification:', doc.id)
             console.log('[Notifications Plugin] Push content:', pushContent)
 
-            let results: Array<{ success: boolean; error?: any }> = []
+            let results: Array<{ error?: any; success: boolean }> = []
 
             // Check if custom findSubscriptions hook is provided
             if (webPushConfig.findSubscriptions) {
@@ -218,17 +220,17 @@ export function createNotificationsCollection(options: NotificationsPluginOption
 
               // Send notifications directly to the found subscriptions
               const notificationPayload = JSON.stringify({
-                title: pushContent.title,
                 body: pushContent.body,
+                title: pushContent.title,
                 // No icon/badge fallback: the package ships no images, and an
                 // absent value lets the service worker's ?icon=&badge= defaults apply.
-                icon: pushContent.icon,
-                badge: pushContent.badge,
-                image: pushContent.image,
-                data: pushContent.data,
                 actions: pushContent.actions,
-                tag: pushContent.tag,
+                badge: pushContent.badge,
+                data: pushContent.data,
+                icon: pushContent.icon,
+                image: pushContent.image,
                 requireInteraction: pushContent.requireInteraction || false,
+                tag: pushContent.tag,
                 timestamp: Date.now(),
               })
 
@@ -238,8 +240,8 @@ export function createNotificationsCollection(options: NotificationsPluginOption
                     const pushSub = {
                       endpoint: sub.endpoint,
                       keys: {
-                        p256dh: sub.p256dh,
                         auth: sub.auth,
+                        p256dh: sub.p256dh,
                       },
                     }
                     await pushManager.sendNotification(pushSub, notificationPayload)
@@ -248,19 +250,19 @@ export function createNotificationsCollection(options: NotificationsPluginOption
                     // Handle expired/invalid subscriptions
                     if (error.statusCode === 410 || error.statusCode === 404) {
                       await req.payload.update({
-                        collection: 'push-subscriptions',
                         id: sub.id,
+                        collection: 'push-subscriptions',
                         data: { isActive: false },
                       })
                     }
-                    return { success: false, error }
+                    return { error, success: false }
                   }
                 })
               ).then(results =>
                 results.map((result) =>
                   result.status === 'fulfilled'
                     ? result.value
-                    : { success: false, error: result.reason }
+                    : { error: result.reason, success: false }
                 )
               )
             } else {
@@ -270,7 +272,7 @@ export function createNotificationsCollection(options: NotificationsPluginOption
                 return
               }
 
-              let recipientId: string|number
+              let recipientId: number|string
 
               if (typeof doc.recipient === 'string' || typeof doc.recipient === 'number') {
                 recipientId = doc.recipient
@@ -289,15 +291,15 @@ export function createNotificationsCollection(options: NotificationsPluginOption
                 pushContent.title,
                 pushContent.body,
                 {
-                  icon: pushContent.icon,
-                  badge: pushContent.badge,
-                  image: pushContent.image,
-                  data: pushContent.data,
                   actions: pushContent.actions,
-                  tag: pushContent.tag,
-                  requireInteraction: pushContent.requireInteraction,
+                  badge: pushContent.badge,
                   channel: doc.channel,
+                  data: pushContent.data,
+                  icon: pushContent.icon,
+                  image: pushContent.image,
                   recipientType: 'user',
+                  requireInteraction: pushContent.requireInteraction,
+                  tag: pushContent.tag,
                 }
               )
             }

@@ -145,32 +145,32 @@ export function usePushNotifications(vapidPublicKey: string, channels: string[])
   }, [vapidPublicKey])
 
   const subscribe = async () => {
-    if (!pushManager) throw new Error('Push manager not initialized')
+    if (!pushManager) {throw new Error('Push manager not initialized')}
     await pushManager.subscribe(channels)
     setIsSubscribed(true)
     setPermission('granted')
   }
 
   const unsubscribe = async () => {
-    if (!pushManager) throw new Error('Push manager not initialized')
+    if (!pushManager) {throw new Error('Push manager not initialized')}
     await pushManager.unsubscribe()
     setIsSubscribed(false)
   }
 
   const requestPermission = async () => {
-    if (!pushManager) throw new Error('Push manager not initialized')
+    if (!pushManager) {throw new Error('Push manager not initialized')}
     const newPermission = await pushManager.requestPermission()
     setPermission(newPermission)
     return newPermission
   }
 
   return {
-    isSupported,
     isSubscribed,
+    isSupported,
     permission,
+    pushManager,
+    requestPermission,
     subscribe,
     unsubscribe,
-    requestPermission,
-    pushManager,
   }
 }

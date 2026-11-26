@@ -5,24 +5,24 @@ export default function AppLayout({
 }) {
   return (
     <html lang="en">
-      <body style={{ margin: 0, fontFamily: 'system-ui, sans-serif' }}>
-        <div style={{ minHeight: '100vh', backgroundColor: '#fafafa' }}>
+      <body style={{ fontFamily: 'system-ui, sans-serif', margin: 0 }}>
+        <div style={{ backgroundColor: '#fafafa', minHeight: '100vh' }}>
           <nav style={{
             backgroundColor: 'white',
             borderBottom: '1px solid #e5e7eb',
-            padding: '1rem 2rem',
-            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)'
+            boxShadow: '0 1px 3px 0 rgba(0, 0, 0, 0.1)',
+            padding: '1rem 2rem'
           }}>
             <div style={{
-              maxWidth: '1200px',
-              margin: '0 auto',
-              display: 'flex',
               alignItems: 'center',
-              justifyContent: 'space-between'
+              display: 'flex',
+              justifyContent: 'space-between',
+              margin: '0 auto',
+              maxWidth: '1200px'
             }}>
-              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+              <div style={{ alignItems: 'center', display: 'flex', gap: '0.5rem' }}>
                 <span style={{ fontSize: '1.5rem' }}>🔔</span>
-                <span style={{ fontWeight: 'bold', fontSize: '1.1rem' }}>
+                <span style={{ fontSize: '1.1rem', fontWeight: 'bold' }}>
                   Payload Notifications
                 </span>
               </div>
@@ -30,10 +30,10 @@ export default function AppLayout({
                 <a 
                   href="/" 
                   style={{ 
-                    color: '#007FFF', 
-                    textDecoration: 'none',
+                    borderRadius: '4px', 
+                    color: '#007FFF',
                     padding: '0.5rem 1rem',
-                    borderRadius: '4px'
+                    textDecoration: 'none'
                   }}
                 >
                   Home
@@ -41,10 +41,10 @@ export default function AppLayout({
                 <a 
                   href="/demo" 
                   style={{ 
-                    color: '#007FFF', 
-                    textDecoration: 'none',
+                    borderRadius: '4px', 
+                    color: '#007FFF',
                     padding: '0.5rem 1rem',
-                    borderRadius: '4px'
+                    textDecoration: 'none'
                   }}
                 >
                   Push Demo
@@ -52,11 +52,11 @@ export default function AppLayout({
                 <a 
                   href="/admin" 
                   style={{ 
-                    color: '#007FFF', 
-                    textDecoration: 'none',
-                    padding: '0.5rem 1rem',
+                    border: '1px solid #007FFF', 
                     borderRadius: '4px',
-                    border: '1px solid #007FFF'
+                    color: '#007FFF',
+                    padding: '0.5rem 1rem',
+                    textDecoration: 'none'
                   }}
                 >
                   Admin Panel
@@ -68,12 +68,12 @@ export default function AppLayout({
             {children}
           </main>
           <footer style={{
+            backgroundColor: 'white',
+            borderTop: '1px solid #e5e7eb',
+            color: '#6b7280',
             marginTop: '4rem',
             padding: '2rem',
-            textAlign: 'center',
-            borderTop: '1px solid #e5e7eb',
-            backgroundColor: 'white',
-            color: '#6b7280'
+            textAlign: 'center'
           }}>
             <p>
               🔔 Payload Notifications Plugin Demo | 
