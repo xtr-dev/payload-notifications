@@ -4,69 +4,56 @@
 import type { PushNotificationContent } from '../types.js'
 
 /**
- * Extract plain text from Payload rich text content
- * Supports both Lexical and Slate formats
+ * Node types that sit inside a line of text rather than forming their own
+ * block. Lexical uses `text`, `link`, `autolink`, `linebreak` and `tab`
+ * (plus `code-highlight` inside code blocks); Slate uses `link` for inline
+ * links and leaves text leaves untyped.
+ */
+const INLINE_NODE_TYPES = new Set(['autolink', 'code-highlight', 'linebreak', 'link', 'tab', 'text'])
+
+/**
+ * Extract plain text from Payload rich text content.
+ *
+ * Accepts a plain string, Lexical editor state (`{ root: { children } }`,
+ * Payload 3's default editor), a bare Lexical node, or a Slate value (an
+ * array of block nodes). Inline nodes such as text and links are joined
+ * without a separator so formatted runs of one word stay intact, while
+ * block nodes (paragraphs, headings, list items, quotes, table cells) and
+ * line breaks are separated by a single space. Runs of whitespace are
+ * collapsed, since the result is a one-line excerpt for a push body.
  */
 export function extractTextFromRichText(richText: any): string {
   if (!richText) return ''
-  
+
   if (typeof richText === 'string') {
     return richText
   }
 
-  if (Array.isArray(richText)) {
-    return richText
-      .map(block => extractTextFromBlock(block))
-      .filter(Boolean)
-      .join(' ')
-  }
+  const root = isObject(richText) && isObject(richText.root) ? richText.root : richText
 
-  return ''
+  return renderNode(root).replace(/\s+/g, ' ').trim()
+}
+
+function isObject(value: unknown): value is Record<string, any> {
+  return typeof value === 'object' && value !== null
 }
 
 /**
- * Extract text from a rich text block
+ * Render one rich text node, or an array of sibling nodes, to text. Block
+ * nodes are padded with spaces so that adjacent blocks never run together;
+ * the caller collapses the padding.
  */
-function extractTextFromBlock(block: any): string {
-  if (!block) return ''
+function renderNode(node: any): string {
+  if (typeof node === 'string') return node
+  if (Array.isArray(node)) return node.map(renderNode).join('')
+  if (!isObject(node)) return ''
 
-  // Handle Lexical format (Payload 3.x default)
-  if (block.type === 'paragraph' || block.type === 'heading') {
-    return extractTextFromChildren(block.children || [])
-  }
+  if (node.type === 'linebreak' || node.type === 'tab') return ' '
+  if (typeof node.text === 'string') return node.text
+  if (!Array.isArray(node.children)) return ''
 
-  // Handle direct children array
-  if (block.children && Array.isArray(block.children)) {
-    return extractTextFromChildren(block.children)
-  }
-
-  // Handle text nodes directly
-  if (typeof block.text === 'string') {
-    return block.text
-  }
-
-  // Handle Slate format (legacy)
-  if (block.type === 'p' || block.type === 'h1' || block.type === 'h2') {
-    return extractTextFromChildren(block.children || [])
-  }
-
-  return ''
-}
-
-/**
- * Extract text from children array
- */
-function extractTextFromChildren(children: any[]): string {
-  if (!Array.isArray(children)) return ''
-
-  return children
-    .map(child => {
-      if (typeof child === 'string') return child
-      if (typeof child.text === 'string') return child.text
-      if (child.children) return extractTextFromChildren(child.children)
-      return ''
-    })
-    .join('')
+  const inner = node.children.map(renderNode).join('')
+  return typeof node.type === 'string' && INLINE_NODE_TYPES.has(node.type) ? inner : ` ${inner} `
 }
 
 /**
