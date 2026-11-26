@@ -65,7 +65,7 @@ Each notification can be assigned one of the configured channels via its `channe
 
 ## Collection Schema
 
-The plugin creates a notifications collection with the following fields:
+The plugin creates a `notifications` collection (the slug is fixed, not configurable) with the following fields:
 
 - **title** (required text): The notification title
 - **message** (required richText): The notification content
