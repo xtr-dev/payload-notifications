@@ -1,289 +1,93 @@
 # Web Push Notifications
 
-The `@xtr-dev/payload-notifications` plugin includes built-in support for web push notifications for PWA and mobile browser users.
+Optional web push delivery for `@xtr-dev/payload-notifications`: browsers subscribe through the plugin's endpoints, and new notifications can be pushed to their recipients automatically.
 
-## Features
-
-- 🔔 Web Push Notifications for mobile PWA support
-- 📲 Service Worker integration for offline notifications
-- 🔐 VAPID keys support for secure push messaging
-- 🎯 Auto-push on notification creation
-- 🔄 Custom notification transformers
-- 👤 Anonymous user notification support
-
-## Setup VAPID Keys
-
-**Step 1:** Generate VAPID keys for secure push messaging:
+## 1. VAPID keys
 
 ```bash
 npx web-push generate-vapid-keys
 ```
 
-This will output something like:
-```
-=======================================
-Public Key:
-BNde-uFUkQB5BweFbOt_40Tn3xZahMop2JKT8kqRn4UqMMinieguHmVCTxwN_qfM-jZ0YFpVpIk3CWehlXcTl8A
-
-Private Key:
-RVtnLcW8qlSkuhNskz8lwBwYcam78x-zO0Ssm_P2bmE
-=======================================
-```
-
-**Step 2:** Add the keys to your environment variables:
+Put both keys in your environment and keep the private key secret:
 
 ```env
-VAPID_PUBLIC_KEY=BNde-uFUkQB5BweFbOt_40Tn3xZahMop2JKT8kqRn4UqMMinieguHmVCTxwN_qfM-jZ0YFpVpIk3CWehlXcTl8A
-VAPID_PRIVATE_KEY=RVtnLcW8qlSkuhNskz8lwBwYcam78x-zO0Ssm_P2bmE
+VAPID_PUBLIC_KEY=...
+VAPID_PRIVATE_KEY=...
+NEXT_PUBLIC_VAPID_PUBLIC_KEY=... # same public key, for the browser
 ```
 
-**Step 3:** Restart your application to load the new environment variables.
-
-⚠️ **Important:** Keep your private key secure and never commit it to version control!
-
-## Plugin Configuration
-
-### Basic Web Push Setup
+## 2. Plugin configuration
 
 ```typescript
 import { notificationsPlugin } from '@xtr-dev/payload-notifications'
 
 notificationsPlugin({
-  webPush: {
-    enabled: true,
-    autoPush: true, // Automatically send push notifications when notifications are created
-    vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
-    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
-    vapidSubject: 'mailto:your-email@example.com',
-  }
-})
-```
-
-### Advanced Configuration
-
-```typescript
-notificationsPlugin({
-  webPush: {
-    enabled: true,
-    autoPush: true,
-    vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
-    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
-    vapidSubject: 'mailto:your-email@example.com',
-    // Optional: where a click on a push opens when using the default
-    // transformer (default '/'). A string or (notification) => string.
-    notificationUrl: (notification) => `/account/notifications/${notification.id}`,
-    // Optional: Custom notification transformer (replaces the default one,
-    // so notificationUrl no longer applies)
-    transformNotification: (notification) => ({
-      title: `🔔 ${notification.title}`,
-      body: extractTextFromRichText(notification.message).substring(0, 120) + '...',
-      icon: '/icons/notification-icon.png',
-      badge: '/icons/notification-badge.png',
-      data: {
-        notificationId: notification.id,
-        url: `/account/notifications/${notification.id}`,
-        // Read by the service worker to report a closed notification to /api/push-notifications/track
-        id: notification.id,
-        trackClose: true,
-      },
-      actions: [
-        { action: 'view', title: 'View', icon: '/icons/view.png' },
-        { action: 'dismiss', title: 'Dismiss' }
-      ]
-    }),
-    // Optional: Custom hook for finding push subscriptions (for anonymous notifications)
-    findSubscriptions: async (notification, payload) => {
-      // Custom logic to find subscriptions based on notification data
-      // Return array of push subscription documents
-      return []
-    }
-  }
-})
-```
-
-Without `transformNotification`, the default transformer sends the title, a plain-text excerpt of the message (up to 120 characters), `data: { id, notificationId, url, createdAt, trackClose: true }` and `tag: notification-<id>`. It sets no icon, badge or actions, since the package ships no images (see [Icon and badge](#icon-and-badge)).
-
-## Anonymous Notifications Support
-
-For scenarios where you need to send notifications to anonymous users or have custom recipient logic (e.g., notifications based on email addresses, phone numbers, or custom identifiers), you can use the `findSubscriptions` hook combined with a custom field added via `collectionOverrides`.
-
-### Example: Email-based notifications
-
-```typescript
-notificationsPlugin({
   channels: [{ id: 'default', name: 'Default' }],
-  // Add custom email field to the notifications collection
-  collectionOverrides: {
-    notifications: (config) => ({
-      ...config,
-      fields: [
-        ...config.fields,
-        {
-          name: 'recipientEmail',
-          type: 'email',
-          label: 'Recipient Email',
-          admin: {
-            description: 'Email address of the notification recipient',
-          },
-        }
-      ]
-    })
-  },
   webPush: {
     enabled: true,
     autoPush: true,
-    vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
-    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
-    vapidSubject: 'mailto:your-email@example.com',
-    // Custom hook to find subscriptions based on email
-    findSubscriptions: async (notification, payload) => {
-      if (!notification.recipientEmail) return []
-
-      // Find push subscriptions associated with this email
-      const subscriptions = await payload.find({
-        collection: 'push-subscriptions',
-        where: {
-          and: [
-            { recipientEmail: { equals: notification.recipientEmail } },
-            { isActive: { equals: true } },
-            // Channel filtering (if specified)
-            ...(notification.channel ? [{
-              or: [
-                { channels: { contains: notification.channel } },
-                { channels: { contains: 'all' } },
-                { channels: { exists: false } },
-              ]
-            }] : [])
-          ]
-        }
-      })
-
-      return subscriptions.docs
-    }
-  }
-})
-```
-
-### Example: Phone number-based notifications
-
-```typescript
-notificationsPlugin({
-  channels: [{ id: 'default', name: 'Default' }],
-  collectionOverrides: {
-    notifications: (config) => ({
-      ...config,
-      fields: [
-        ...config.fields,
-        {
-          name: 'recipientPhone',
-          type: 'text',
-          label: 'Recipient Phone',
-          admin: {
-            description: 'Phone number of the notification recipient',
-          },
-        }
-      ]
-    })
+    vapidPublicKey: process.env.VAPID_PUBLIC_KEY!,
+    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY!,
+    vapidSubject: 'mailto:you@example.com',
+    notificationUrl: (notification) => `/notifications/${notification.id}`,
   },
-  webPush: {
-    enabled: true,
-    autoPush: true,
-    vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
-    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
-    vapidSubject: 'mailto:your-email@example.com',
-    findSubscriptions: async (notification, payload) => {
-      if (!notification.recipientPhone) return []
-
-      // Custom logic to find subscriptions by phone number
-      // You might have a separate mapping table or user lookup
-      const user = await payload.find({
-        collection: 'users',
-        where: { phone: { equals: notification.recipientPhone } },
-        limit: 1
-      })
-
-      if (!user.docs[0]) return []
-
-      const subscriptions = await payload.find({
-        collection: 'push-subscriptions',
-        where: {
-          and: [
-            { user: { equals: user.docs[0].id } },
-            { isActive: { equals: true } }
-          ]
-        }
-      })
-
-      return subscriptions.docs
-    }
-  }
 })
 ```
 
-**Key Points:**
-- The default `recipient` field remains a user relationship for standard notifications
-- A notification without a `recipient` is created as a broadcast and every signed-in user can read it. Set `audience: 'user'` on custom-recipient notifications so that only admins can read them through the API
-- Add custom recipient fields via `collectionOverrides.notifications` for your specific use case
-- Use the `findSubscriptions` hook to implement custom subscription lookup logic
-- The hook receives the full notification document and payload instance
-- Return an array of push subscription documents that should receive the notification
-- The plugin will handle the actual push notification sending and error handling
+| Option | Description |
+|--------|-------------|
+| `vapidPublicKey`, `vapidPrivateKey`, `vapidSubject` | Required. `vapidSubject` is a `mailto:` or `https:` contact |
+| `enabled` | Registers the push endpoints and allows sending. Without it nothing is sent and `push-subscriptions` is admin-only |
+| `autoPush` | Sends a push when a notification is created (see [Automatic pushes](#automatic-pushes)) |
+| `notificationUrl` | Where a click opens, for the default transformer. A string or `(notification) => string`; default `/` |
+| `transformNotification` | `(notification) => PushNotificationContent`. Replaces the default transformer, so `notificationUrl` no longer applies |
+| `findSubscriptions` | `(notification, payload) => Promise<subscription[]>`. Replaces the default recipient lookup |
+| `options` | `web-push` `RequestOptions` (TTL, urgency, proxy, ...) |
 
-## Client-Side Integration
+The default transformer sends the title, a plain-text excerpt of the message (up to 120 characters, Lexical and Slate supported), `data: { id, notificationId, url, createdAt, trackClose: true }` and `tag: notification-<id>`. It sets no icon, badge or actions, because the package ships no images.
 
-⚠️ **Authentication Required:** Users must be signed in to subscribe to push notifications. Push subscriptions are associated with user accounts.
-
-### React Hook
-
-```typescript
-import { usePushNotifications } from '@xtr-dev/payload-notifications/client'
-
-function NotificationSettings() {
-  const {
-    isSupported,
-    isSubscribed,
-    permission,
-    subscribe,
-    unsubscribe
-  } = usePushNotifications(process.env.NEXT_PUBLIC_VAPID_KEY, ['default'])
-
-  if (!isSupported) return <div>Push notifications not supported</div>
-
-  return (
-    <div>
-      <p>Status: {isSubscribed ? 'Subscribed' : 'Not subscribed'}</p>
-      <p>Permission: {permission}</p>
-
-      {!isSubscribed ? (
-        <button onClick={subscribe}>Enable Notifications</button>
-      ) : (
-        <button onClick={unsubscribe}>Disable Notifications</button>
-      )}
-    </div>
-  )
-}
-```
-
-### Vanilla JavaScript
+A custom transformer:
 
 ```typescript
-import { ClientPushManager } from '@xtr-dev/payload-notifications/client'
-
-const pushManager = new ClientPushManager('your-vapid-public-key')
-
-// Subscribe to notifications (channel ids must match the plugin's configured channels)
-await pushManager.subscribe(['default'])
-
-// Check subscription status
-const isSubscribed = await pushManager.isSubscribed()
-
-// Unsubscribe
-await pushManager.unsubscribe()
+transformNotification: (notification) => ({
+  title: notification.title,
+  body: 'You have a new notification',
+  icon: '/icons/icon-192.png',
+  data: { url: `/notifications/${notification.id}`, id: notification.id, trackClose: true },
+  actions: [{ action: 'view', title: 'View' }, { action: 'dismiss', title: 'Dismiss' }],
+}),
 ```
 
-## Service Worker Setup
+The service worker handles the `view` and `dismiss` actions; `data.url` is opened on click, and `data.trackClose` with `data.id` reports a close to `/track`.
 
-The package ships a ready-to-serve service worker at `@xtr-dev/payload-notifications/sw.js` (`dist/sw.js`). It is plain JavaScript and a classic (non-module) script, so you can serve it unedited and register it with `navigator.serviceWorker.register('/sw.js')`. Copy it into your public folder, for example from a `postinstall` or build step:
+## Automatic pushes
+
+With `autoPush`, each newly created notification is pushed:
+
+- **Default:** to the active subscriptions of its `recipient` that include the notification's `channel` (all of the recipient's subscriptions when the notification has no channel). A notification without a recipient, such as a broadcast, is **not** pushed unless you set `findSubscriptions`.
+- **With `findSubscriptions`:** to the subscription documents it returns.
+
+Failures are logged and never fail the create. Subscriptions that answer 404 or 410 are marked `isActive: false`.
+
+Example: push personal notifications to their recipient and broadcasts to every subscriber, filtered by channel.
+
+```typescript
+import type { Where } from 'payload'
+
+findSubscriptions: async (notification, payload) => {
+  const where: Where = { isActive: { equals: true } }
+  if (notification.audience === 'user') where.user = { equals: notification.recipient }
+  if (notification.channel) where.channels = { contains: notification.channel }
+  const { docs } = await payload.find({ collection: 'push-subscriptions', where, limit: 0 })
+  return docs
+},
+```
+
+For custom recipient fields (for example a `recipientEmail` added through `collectionOverrides.notifications`), look up the matching users and return their subscriptions. A notification created without a `recipient` is a broadcast that every signed-in user can read, so set `audience: 'user'` on such notifications to keep them admin-only in the API.
+
+## 3. Service worker
+
+The package ships a classic (non-module) service worker at `@xtr-dev/payload-notifications/sw.js`. Serve it from your site root, for example by copying it into `public/` in a build step:
 
 ```js
 // scripts/copy-sw.mjs
@@ -294,101 +98,74 @@ const require = createRequire(import.meta.url)
 copyFileSync(require.resolve('@xtr-dev/payload-notifications/sw.js'), 'public/sw.js')
 ```
 
-The same code is also exported as the `serviceWorkerCode` string from `/client`, if you prefer to write the file yourself (`writeFileSync('public/sw.js', serviceWorkerCode)`).
+The same code is exported as the `serviceWorkerCode` string from `/client`. The worker shows pushes, opens `data.url` on click (focusing an open tab with that URL), and posts closes to `/api/push-notifications/track` when `data.trackClose` is set; that request is authenticated by the user's same-origin auth cookie.
 
 ### Icon and badge
 
-The worker shows the `icon` and `badge` from the push payload (set them in `transformNotification`). For a push whose payload has none, you can set defaults with query parameters on the registration URL — no need to edit the file:
+The worker uses the `icon` and `badge` from the push payload. Defaults for pushes without them can be set with query parameters on the registration URL:
 
 ```typescript
-navigator.serviceWorker.register('/sw.js?icon=/icons/icon-192.png&badge=/icons/badge-72.png')
-
-// or, with the client push manager:
 new ClientPushManager(vapidPublicKey, {
   serviceWorkerPath: '/sw.js?icon=/icons/icon-192.png&badge=/icons/badge-72.png',
 })
 ```
 
-Without either, the notification is shown without an icon or badge; the worker itself no longer hardcodes `/icon-192x192.png` and `/badge-72x72.png`. Pushes sent by the plugin (`autoPush`, `WebPushManager.sendToRecipient`) do not add an icon or badge either, so the query parameters apply to them whenever `transformNotification` (or the `sendToRecipient` options) set none.
+## 4. Subscribing in the browser
 
-The worker handles:
+Users must be signed in to subscribe; a subscription belongs to the user that created it.
 
-- Push notification events
-- Notification click handling
-- Service worker lifecycle management
-- Error handling and fallbacks
-- Notification close tracking (posts to `/api/push-notifications/track`, which the plugin registers when `webPush.enabled`; the endpoint requires a signed-in user, which the worker's same-origin request provides through the auth cookie, and validates and logs the event)
+```tsx
+'use client'
+import { usePushNotifications } from '@xtr-dev/payload-notifications/client'
 
-**Important Notes:**
-- The service worker file **must** be placed at `/public/sw.js` in Next.js projects
-- This makes it accessible at `https://yourdomain.com/sw.js`
-- Service workers must be served from the root domain for security
-- After creating the file, restart your Next.js development server
+export function NotificationSettings() {
+  const { isSupported, isSubscribed, permission, subscribe, unsubscribe } =
+    usePushNotifications(process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY!, ['default'])
 
-## Server-Side Push Notifications
+  if (!isSupported) return <p>Push notifications are not supported</p>
+  return isSubscribed
+    ? <button onClick={unsubscribe}>Disable notifications</button>
+    : <button disabled={permission === 'denied'} onClick={subscribe}>Enable notifications</button>
+}
+```
+
+Without React, use `ClientPushManager` directly:
+
+```typescript
+import { ClientPushManager } from '@xtr-dev/payload-notifications/client'
+
+const push = new ClientPushManager(vapidPublicKey, {
+  serviceWorkerPath: '/sw.js', // default
+  apiEndpoint: '/api/push-notifications', // default
+})
+await push.subscribe(['default']) // channel ids from the plugin config
+await push.isSubscribed()
+await push.unsubscribe()
+```
+
+The public key is also available from `GET /api/push-notifications/vapid-public-key`.
+
+## Sending from server code
 
 ```typescript
 import { WebPushManager } from '@xtr-dev/payload-notifications/rsc'
 
-// Send push notification to a user
-const pushManager = new WebPushManager(webPushConfig, payload)
-
-await pushManager.sendToUser(
-  userId,
-  'Order Shipped!',
-  'Your order #12345 has been shipped',
-  {
-    icon: '/icons/order-shipped.png',
-    badge: '/icons/badge.png',
-    data: { orderId: '12345', url: '/orders/12345' },
-    actions: [
-      { action: 'view', title: 'View Order', icon: '/icons/view.png' },
-      { action: 'dismiss', title: 'Dismiss' }
-    ]
-  }
-)
-```
-
-## API Endpoints
-
-The plugin automatically creates these endpoints when web push is enabled. (The `push-subscriptions` collection itself is always registered, so `payload generate:types` produces the same types with or without VAPID keys; only these endpoints and the sending of pushes depend on `webPush.enabled`.)
-
-- `POST /api/push-notifications/subscribe` - Subscribe to push notifications ⚠️ **Requires authentication**
-- `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
-- `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
-- `POST /api/push-notifications/track` - Track notification events (called by the generated service worker; requires authentication)
-
-There is no HTTP endpoint for sending a push notification. Sends happen server-side, either automatically via `autoPush` on the notifications collection or by calling `WebPushManager.sendToUser()` directly, as shown above.
-
-## Integration with Notifications Collection
-
-When creating notifications, you can automatically send push notifications:
-
-```typescript
-// Create notification and send push notification
-const notification = await payload.create({
-  collection: 'notifications',
-  data: {
-    title: 'New Message',
-    message: [{ children: [{ text: 'You have a new message!' }] }],
-    recipient: userId,
-    channel: 'default'
-  }
+const push = new WebPushManager(webPushConfig, payload)
+await push.sendToRecipient(userId, 'Order shipped', 'Your order #12345 is on its way', {
+  channel: 'orders',
+  data: { url: '/orders/12345' },
 })
-
-// With autoPush enabled, push notifications are sent automatically
-// Or manually send push notification
-if (webPushEnabled) {
-  await pushManager.sendToUser(
-    userId,
-    notification.title,
-    'You have a new notification',
-    {
-      data: {
-        notificationId: notification.id,
-        url: `/notifications/${notification.id}`
-      }
-    }
-  )
-}
 ```
+
+`sendToRecipient` returns one `{ success, error? }` per subscription. `sendToUser` is a deprecated alias.
+
+## Endpoints
+
+Registered only when `webPush.enabled` is true. There is no HTTP endpoint for sending pushes.
+
+| Endpoint | Auth | Body |
+|----------|------|------|
+| `POST /api/push-notifications/subscribe` | required | `{ subscription, userAgent, channels }`. 403 if the endpoint belongs to another user |
+| `POST /api/push-notifications/unsubscribe` | required | `{ endpoint }`; marks the user's own matching subscription inactive |
+| `GET /api/push-notifications/vapid-public-key` | none | answers `{ publicKey }` |
+| `POST /api/push-notifications/track` | required | `{ action, notificationId?, timestamp? }`; validated and logged, 400 on invalid input |
