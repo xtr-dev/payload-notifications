@@ -1,210 +1,26 @@
-# Payload Notifications Plugin - Development Environment
+# Development app
 
-This is the development environment for testing and demonstrating the `@xtr-dev/payload-notifications` plugin.
+A Next.js + Payload app for working on `@xtr-dev/payload-notifications`. It uses SQLite (`dev.db` in the repo root, or `DATABASE_URI`) and seeds itself on start.
 
-## 🚀 Quick Start
-
-1. **Install dependencies:**
-   ```bash
-   pnpm install
-   ```
-
-2. **Start the development server:**
-   ```bash
-   pnpm dev
-   ```
-
-3. **Open the demo:**
-   - Homepage: [http://localhost:3000](http://localhost:3000)
-   - Admin Panel: [http://localhost:3000/admin](http://localhost:3000/admin)
-   - Push Demo: [http://localhost:3000/demo](http://localhost:3000/demo)
-
-4. **Login to admin:**
-   - Email: `dev@payloadcms.com`
-   - Password: `test`
-
-## 🔧 Configuration
-
-The dev environment showcases a complete implementation of the notifications plugin with:
-
-### Collections
-- **Users** - Authentication with admin/customer roles
-- **Products** - Sample e-commerce products
-- **Orders** - Sample orders with different statuses
-- **Posts** - Blog posts for content notifications
-- **Notifications** - The plugin's notifications collection
-- **Push Subscriptions** - Web push subscription management
-
-### Plugin Configuration
-```typescript
-notificationsPlugin({
-  channels: [
-    { id: 'general', name: 'General Notifications', description: 'General updates and announcements' },
-    { id: 'orders', name: 'Order Updates', description: 'Order status changes and shipping notifications' },
-    { id: 'products', name: 'Product Updates', description: 'New products, restocks, and price changes' },
-    { id: 'marketing', name: 'Marketing & Promotions', description: 'Special offers, sales, and promotional content' }
-  ],
-  webPush: {
-    enabled: true,
-    autoPush: true,
-    vapidPublicKey: process.env.VAPID_PUBLIC_KEY,
-    vapidPrivateKey: process.env.VAPID_PRIVATE_KEY,
-    vapidSubject: 'mailto:test@example.com'
-  }
-})
-```
-
-## 📱 Web Push Notifications
-
-### Setup VAPID Keys
-
-1. **Generate VAPID keys:**
-   ```bash
-   npx web-push generate-vapid-keys
-   ```
-
-2. **Create a `.env` file:**
-   ```bash
-   cp .env.example .env
-   ```
-
-3. **Add your VAPID keys to `.env`:**
-   ```env
-   VAPID_PUBLIC_KEY=your-public-key
-   VAPID_PRIVATE_KEY=your-private-key
-   ```
-
-### API Endpoints
-
-The plugin automatically creates these endpoints:
-
-- `POST /api/push-notifications/subscribe` - Subscribe to push notifications
-- `POST /api/push-notifications/unsubscribe` - Unsubscribe from push notifications
-- `GET /api/push-notifications/vapid-public-key` - Get VAPID public key
-- `POST /api/push-notifications/track` - Track notification events (called by the generated service worker)
-
-### Service Worker Setup
-
-The service worker is already configured and located at `/public/sw.js`. For new projects, generate it with:
+## Run
 
 ```bash
-npx @xtr-dev/payload-notifications generate-sw
+pnpm install
+cp dev/.env.example dev/.env   # optional: VAPID keys and secret
+pnpm dev
 ```
 
-The service worker handles:
+- Admin: http://localhost:3000/admin, sign in as `dev@payloadcms.com` / `test` (admin). A second user, `customer@example.com` / `test`, has the `customer` role.
+- Push demo: http://localhost:3000/demo
 
-- **Push message processing** - Receives and displays push notifications
-- **Notification clicks** - Opens relevant admin panel or URLs
-- **Test notifications** - Supports demo functionality
-- **Analytics tracking** - Tracks notification interactions
+The seed creates a few notifications on the `general`, `orders` and `products` channels.
 
-### Testing Push Notifications
+## Web push
 
-1. **Open the [demo page](http://localhost:3000/demo)**
-2. **Enable notifications:**
-   - Click "Enable Notifications" 
-   - Allow browser permissions when prompted
-   - The service worker will be registered automatically
-3. **Test the system:**
-   - Click "Send Test Notification" to see instant notifications
-   - Check browser dev tools console for service worker logs
-4. **Admin panel testing:**
-   - Go to `/admin` and create notifications
-   - Assign a channel (General, Orders, Products, or Marketing) to route it
-   - Real push notifications require proper VAPID keys
+Generate keys with `npx web-push generate-vapid-keys` and set `VAPID_PUBLIC_KEY` and `VAPID_PRIVATE_KEY` in `dev/.env`. The config enables `webPush` with `autoPush` and a custom `transformNotification` that links to the admin panel. The worker served at `/sw.js` is `dev/public/sw.js`, a local copy; the published one is generated from `serviceWorkerCode` in `src/exports/client.ts`.
 
-### Service Worker Features
+To try it, open `/demo`, enable notifications, then create a notification in the admin with the subscribed user as recipient.
 
-- ✅ **Automatic registration** when subscribing to notifications
-- ✅ **Test notification support** for immediate testing
-- ✅ **Rich notification display** with actions and custom icons
-- ✅ **Click handling** that opens relevant admin pages
-- ✅ **Analytics tracking** for notification interactions
-- ✅ **Fallback handling** for missing icons or data
+## Tests
 
-## 📊 Sample Data
-
-The development environment is automatically seeded with:
-
-### Users
-- **Admin User**: dev@payloadcms.com (password: test)
-- **Customer User**: customer@example.com (password: test)
-
-### Products
-- Wireless Headphones ($299.99)
-- Cotton T-Shirt ($24.99)
-- JavaScript Guide ($39.99)
-
-### Orders
-- Order #ORD-001 (Shipped - Headphones + T-Shirt)
-- Order #ORD-002 (Pending - JavaScript Guide)
-
-### Notifications
-- Welcome notification on the General channel
-- Orders channel demo notification
-- Product recommendation notification on the Products channel (marked as read)
-
-## 🛠️ Development
-
-### File Structure
-```
-dev/
-├── app/
-│   ├── (app)/
-│   │   ├── page.tsx          # Homepage
-│   │   └── demo/
-│   │       └── page.tsx      # Push notifications demo
-│   └── (payload)/
-│       ├── admin/            # Payload admin panel
-│       └── api/              # API routes
-├── helpers/
-│   ├── credentials.ts        # Default user credentials
-│   └── testEmailAdapter.ts  # Email testing
-├── payload.config.ts         # Payload configuration
-├── seed.ts                   # Database seeding
-└── .env.example             # Environment variables template
-```
-
-### Environment Variables
-- `DATABASE_URI` - MongoDB connection string (optional, uses in-memory DB)
-- `PAYLOAD_SECRET` - JWT secret for authentication
-- `VAPID_PUBLIC_KEY` - VAPID public key for web push
-- `VAPID_PRIVATE_KEY` - VAPID private key for web push
-- `NODE_ENV` - Environment (development/production)
-
-### Scripts
-- `pnpm dev` - Start development server
-- `pnpm build` - Build the application
-- `pnpm start` - Start production server
-- `pnpm lint` - Run ESLint
-- `pnpm test` - Run tests
-
-## 🔍 Testing the Plugin
-
-1. **Admin Panel Testing:**
-   - Create notifications across different channels
-   - Test read/unread functionality
-   - View push subscriptions
-   - Test user role permissions
-
-2. **API Testing:**
-   - Test push notification endpoints
-   - Subscribe/unsubscribe from push notifications
-   - Send test notifications
-
-3. **Client Integration:**
-   - Test the demo page functionality
-   - Test push notification permissions
-   - Test service worker integration
-
-## 🚀 Production Deployment
-
-1. Set up a real MongoDB database
-2. Configure proper VAPID keys
-3. Set up SSL certificates for push notifications
-4. Configure proper environment variables
-5. Deploy using your preferred platform
-
-## 📚 Documentation
-
-For complete documentation, see the main [README.md](../README.md) file.
+`dev/int.spec.ts` runs with `pnpm test:int` against a scratch database (`dev/int-test.db`); `dev/e2e.spec.ts` runs with `pnpm test:e2e` (Playwright).

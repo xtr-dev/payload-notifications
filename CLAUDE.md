@@ -1,89 +1,48 @@
-# @xtr-dev/payload-notifications Development Guide
+# @xtr-dev/payload-notifications
 
-## Project Overview
+Payload 3 plugin: a `notifications` collection (personal and broadcast, channels, per-user read state) plus optional web push. User docs are in README.md and WEBPUSH.md; keep them in sync with behaviour changes.
 
-This is a PayloadCMS plugin that adds a configurable notifications collection. The plugin allows developers to:
-- Create notifications with titles and rich text messages
-- Organize notifications into configurable channels
-- Track read/unread status
-- Target specific recipients
+## Commands
+
+```sh
+pnpm install
+pnpm dev                     # dev app in dev/ (Next + SQLite at ./dev.db), admin dev@payloadcms.com / test
+pnpm lint                    # eslint
+pnpm test:int                # all vitest suites: dev/int.spec.ts and src/**/*.spec.ts
+pnpm test:unit               # src/**/*.spec.ts only
+pnpm build                   # tsc types + swc + dist/sw.js
+pnpm test:published-exports  # imports dist entry points, checks dist/sw.js (needs build)
+pnpm test:declarations       # NodeNext consumer type-check of dist (needs build)
+pnpm dev:generate-types      # regenerate dev/payload-types.ts
+```
 
 ## Architecture
 
-### Plugin Structure
 ```
 src/
-├── index.ts                         # Plugin entry point and Payload config integration
-├── types.ts                         # Public plugin option and web push types
+├── index.ts                      # plugin: adds collections, users beforeDelete cleanup, push endpoints
+├── types.ts                      # NotificationsPluginOptions, WebPushConfig, PushNotificationContent
 ├── collections/
-│   ├── notifications.ts             # Notification schema, access and automatic push hook
-│   ├── notification-audience.ts     # Audience derivation, per-user broadcast read state, /:id/read endpoints
-│   ├── notification-reads.ts        # Per-user broadcast read receipts
-│   └── push-subscriptions.ts        # Web push subscription schema
-├── endpoints/
-│   └── push-notifications.ts        # Subscribe, unsubscribe, and VAPID key endpoints
-├── utils/
-│   ├── richTextExtractor.ts         # Plain-text extraction and default push content
-│   └── webPush.ts                   # Server-side subscription and delivery manager
-└── exports/
-    ├── client.ts                    # Browser push manager, service worker, and React hook exports
-    └── rsc.ts                       # Server-only web push exports
+│   ├── notifications.ts          # schema, access, autoPush afterChange hook
+│   ├── notification-audience.ts  # audience derivation, broadcast read state, POST/DELETE /:id/read
+│   ├── notification-reads.ts     # per-user broadcast read receipts
+│   └── push-subscriptions.ts     # subscription schema and owner-scoped access
+├── endpoints/push-notifications.ts  # subscribe, unsubscribe, vapid-public-key, track
+├── utils/richTextExtractor.ts    # Lexical/Slate plain text, default push transformer
+├── utils/webPush.ts              # WebPushManager (server-side send/subscribe)
+├── client/push-manager.ts        # ClientPushManager (browser)
+└── exports/client.ts, rsc.ts     # /client and /rsc entry points; client.ts holds serviceWorkerCode
 ```
 
-`src/index.ts` always adds the notifications and push-subscriptions collections, so the generated types and database schema are the same whether or not VAPID keys are configured. When `webPush.enabled` is true, it also adds the push notification endpoints. The notifications collection can additionally send a push after creation when `webPush.autoPush` is true.
+- All three collections are always registered so types and schema don't depend on VAPID keys; endpoints and sending are gated on `webPush.enabled`, auto pushes on `webPush.autoPush`.
+- `audience` (`user` | `broadcast`) decides visibility. Never treat an empty recipient as a broadcast: SQL adapters null the recipient when the user is deleted.
+- Admin is `user.role === 'admin'`. Members may only update `isRead`/`readAt` on their own personal notifications; broadcast reads go through `notification-reads`.
+- `exports` in package.json point at `src/` for development; `publishConfig.exports` point at `dist/` and add `./sw.js`. Keep both in sync when adding entry points.
+- The service worker (`serviceWorkerCode`) must stay a classic plain-JS script: no `import`/`export`, no TypeScript. `build:sw` writes it to `dist/sw.js` and fails otherwise.
+- ESM only; use `.js` extensions in relative imports (checked by `test:declarations`).
 
-## Development Guidelines
+## Conventions
 
-### Code Style
-- Use TypeScript for all files
-- Follow PayloadCMS plugin conventions
-- Use descriptive variable and function names
-- Add JSDoc comments for public APIs
-
-### Plugin Configuration
-The plugin accepts a configuration object with:
-- `channels` (required): An array of `{ id, name, description? }` channel definitions. These become the channel choices on notifications and push subscriptions. Calling `notificationsPlugin()` without options uses the built-in `default` channel.
-- `webPush` (optional): Web push credentials and behavior. It requires `vapidPublicKey`, `vapidPrivateKey`, and `vapidSubject`; it can also set `enabled`, `autoPush`, request `options`, `notificationUrl` (click URL for the default transformer, default `/`), `transformNotification`, and `findSubscriptions`.
-- `collectionOverrides` (optional): Functions that receive and return the generated `notifications`, `pushSubscriptions` or `notificationReads` `CollectionConfig`, allowing each collection schema to be customized.
-
-### Relationship System
-- The notifications collection has one fixed relationship field, `recipient`, targeting the `users` collection
-- `recipient` is optional (`required: false`) — leave it unset when delivery is driven by a custom `findSubscriptions` hook instead
-- There is no dynamic or per-collection relationship builder; the field set is fixed and customized only through `collectionOverrides`
-
-### Collection Schema
-The notifications collection includes:
-- Required fields: title, message
-- Optional fields: recipient, audience, channel, isRead, readAt
-- `audience` (`user` | `broadcast`) decides who can read a notification. Never treat an empty recipient as a broadcast: SQL adapters null the recipient when the user is deleted
-- Automatic timestamps: createdAt, updatedAt
-
-## Testing Strategy
-- Test with different PayloadCMS versions
-- Verify relationship configurations work correctly
-- Test access control functionality
-- Ensure TypeScript types are accurate
-
-## Build Process
-- Use TypeScript compiler for builds
-- Generate declaration files (.d.ts)
-- Bundle as ES modules only (`.swcrc` sets `module.type: "es6"`)
-- Include source maps for debugging
-- `build:sw` (`scripts/write-service-worker.mjs`) writes the `serviceWorkerCode` string from `src/exports/client.ts` to `dist/sw.js` (exported as `./sw.js`) and `dist/client/service-worker.js`, and fails if it is not a valid classic (non-module) script. Keep the service worker plain JavaScript: no `import`/`export`, no TypeScript syntax
-
-## Plugin Registration
-The plugin should be registered in PayloadCMS using the standard plugin pattern:
-```typescript
-export const notificationsPlugin = (options: NotificationsPluginOptions = {}) => {
-  return (config: Config): Config => {
-    // Plugin implementation
-  }
-}
-```
-
-## Key Implementation Notes
-1. Use PayloadCMS field types and validation
-2. Leverage PayloadCMS access control patterns
-3. Let consumers customize the generated collection schemas via `collectionOverrides`
-4. Provide sensible defaults for all configuration options
-5. Ensure plugin doesn't conflict with existing collections
+- PR titles are conventional commits (`fix(push): ...`, `feat!: ...` for breaking). Breaking changes need a migration note in the PR body and README "Upgrade notes".
+- Never bump `package.json` versions in PRs. Releases run manually via the Release workflow (`.github/workflows/release.yml`, xtr-dev/changelog), which derives the version and CHANGELOG.md from commits.
+- Add tests for behaviour changes: unit specs next to the source, integration in `dev/int.spec.ts`.

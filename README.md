@@ -2,29 +2,19 @@
 
 [![npm version](https://badge.fury.io/js/@xtr-dev%2Fpayload-notifications.svg)](https://www.npmjs.com/package/@xtr-dev/payload-notifications)
 
-A PayloadCMS plugin that adds a configurable notifications collection for sending messages with titles, rich text content, and channel-based targeting.
+A PayloadCMS plugin that adds a notifications collection with titles, rich text messages, channels, personal and broadcast audiences, and per-user read state. Web push delivery is optional (see [WEBPUSH.md](./WEBPUSH.md)).
 
 ⚠️ **Pre-release Warning**: This package is currently in active development (v0.0.x). Breaking changes may occur before v1.0.0. Not recommended for production use.
-
-## Features
-
-- 📧 Notifications collection with title and message fields
-- 🔗 Configurable channels for targeting notifications
-- 📱 Built-in read/unread status tracking
-- 🎯 Recipient targeting support
-- ⚙️ Collection customization via `collectionOverrides`
-- 📅 Automatic timestamp tracking
-- 🔔 Optional web push notifications support (see [WEBPUSH.md](./WEBPUSH.md))
 
 ## Installation
 
 ```bash
-npm install @xtr-dev/payload-notifications
+pnpm add @xtr-dev/payload-notifications
 ```
 
-## Basic Usage
+Requires `payload` `^3.37.0` and `react` `^18.2.0 || ^19.0.0`. The plugin expects a `users` collection; users with `role === 'admin'` get full access.
 
-Add the plugin to your Payload config:
+## Usage
 
 ```typescript
 import { buildConfig } from 'payload'
@@ -32,53 +22,52 @@ import { notificationsPlugin } from '@xtr-dev/payload-notifications'
 
 export default buildConfig({
   plugins: [
-    notificationsPlugin()
+    notificationsPlugin({
+      channels: [
+        { id: 'orders', name: 'Order Updates', description: 'Order status and shipping' },
+        { id: 'marketing', name: 'Marketing' },
+      ],
+    }),
   ],
-  // ... rest of your config
 })
 ```
 
-## Configuration
+Called without options, `notificationsPlugin()` uses a single built-in `default` channel. Passing an empty `channels` array throws.
 
-### Basic Configuration
+### Options
 
-Calling `notificationsPlugin()` with no options uses a single built-in `default` channel:
+| Option | Type | Default | Description |
+|--------|------|---------|-------------|
+| `channels` | `NotificationChannel[]` (`{ id, name, description? }`) | one `default` channel | Choices for a notification's `channel` and a push subscription's `channels` |
+| `webPush` | `WebPushConfig` | `undefined` | VAPID keys and push behaviour, see [WEBPUSH.md](./WEBPUSH.md) |
+| `collectionOverrides` | `{ notifications?, pushSubscriptions?, notificationReads? }` | `undefined` | Functions that receive and return each generated `CollectionConfig` |
 
-```typescript
-notificationsPlugin()
-```
+## Collections
 
-### Configuration with Channels
+### `notifications`
 
-```typescript
-notificationsPlugin({
-  channels: [
-    { id: 'orders', name: 'Order Updates', description: 'Order status changes and shipping notifications' },
-    { id: 'marketing', name: 'Marketing', description: 'Promotions and announcements' }
-  ]
-})
-```
+The slug is fixed.
 
-Each notification can be assigned one of the configured channels via its `channel` field.
+| Field | Type | Notes |
+|-------|------|-------|
+| `title` | text, required | |
+| `message` | richText, required | Lexical (or any rich text editor); the default push body is a plain-text excerpt |
+| `recipient` | relationship to `users` | Optional |
+| `audience` | select: `user` \| `broadcast` | Left out on create, it is `broadcast` without a recipient and `user` with one. A broadcast cannot have a recipient |
+| `channel` | select | One of the configured channel ids |
+| `isRead` / `readAt` | checkbox / date | For broadcasts, reads by a signed-in user return that user's own read state |
 
-> For web push notifications setup, see [WEBPUSH.md](./WEBPUSH.md). To customize access control or add fields to the generated collections, see [Email Notifications](#email-notifications) below for a `collectionOverrides` example.
+Timestamps are on.
 
-## Collection Schema
+### `notification-reads`
 
-The plugin creates a `notifications` collection (the slug is fixed, not configurable) with the following fields:
+One row per user and broadcast they have read, since a broadcast is a single row shared by every user. Users can read and delete their own rows and create rows only for themselves and broadcasts they can see; the read endpoints below do this for them.
 
-- **title** (required text): The notification title
-- **message** (required richText): The notification content
-- **recipient** (optional relationship to `users`): User who should receive the notification (optional if delivery is driven by a custom `findSubscriptions` hook instead)
-- **audience** (select, `user` or `broadcast`): Who can see the notification. Left out on create, it is `broadcast` when there is no recipient and `user` otherwise. A broadcast cannot have a recipient.
-- **channel** (optional select): Which configured channel the notification belongs to
-- **isRead** (checkbox): Read status tracking. For broadcasts, reads by a signed-in user return that user's own read state (see below)
-- **readAt** (date): When the notification was read
-- **createdAt/updatedAt**: Automatic timestamps
+### `push-subscriptions`
 
-A `notification-reads` collection stores one row per user and broadcast they have read, because a broadcast is a single row shared by every user. Deleting a user (through Payload) also deletes their personal notifications, read receipts and push subscriptions.
+Always registered, even without web push, so generated types and the database schema do not depend on VAPID keys. Without `webPush.enabled` it stays empty and only admins can access it. See [WEBPUSH.md](./WEBPUSH.md).
 
-### Default Access
+### Default access
 
 | Operation | Admins (`role === 'admin'`) | Other signed-in users |
 |-----------|-----------------------------|-----------------------|
@@ -86,138 +75,52 @@ A `notification-reads` collection stores one row per user and broadcast they hav
 | create, delete | yes | no |
 | update | all fields | `isRead`/`readAt` of their own personal notifications |
 
-Server code that creates notifications through the local API is unaffected, since it bypasses access control by default. A personal notification whose recipient has been removed (for example by deleting the user directly in the database) stays `audience: 'user'` and is only visible to admins.
+Anonymous requests get nothing. The local API bypasses access control by default, so server code can create notifications freely. A personal notification whose recipient no longer exists stays `audience: 'user'` and is visible only to admins; an empty recipient is never treated as a broadcast.
 
-It also always creates a `push-subscriptions` collection, even when web push is disabled, so generated types and the database schema do not depend on whether VAPID keys are configured. Without `webPush.enabled` the collection simply stays empty: no push endpoints are registered, no pushes are sent, and only admins (`role === 'admin'`) can access it through REST/GraphQL/admin (the local API bypasses access control as usual). See [WEBPUSH.md](./WEBPUSH.md).
+Deleting a user through Payload also deletes their personal notifications, read receipts and push subscriptions. Deleting a notification deletes its read receipts.
 
-## API Usage
-
-### Creating Notifications
+## Creating and reading notifications
 
 ```typescript
-const notification = await payload.create({
+// Personal notification
+await payload.create({
   collection: 'notifications',
   data: {
-    title: 'Order Shipped',
-    message: [
-      {
-        children: [
-          { text: 'Your order has been shipped and is on its way!' }
-        ]
-      }
-    ],
+    title: 'Order shipped',
+    message: {
+      root: {
+        type: 'root',
+        children: [{ type: 'paragraph', children: [{ type: 'text', text: 'Your order is on its way.' }] }],
+      },
+    },
     recipient: userId,
-    channel: 'orders'
-  }
-})
-```
-
-### Querying Notifications
-
-```typescript
-// Get unread notifications for a user
-const unreadNotifications = await payload.find({
-  collection: 'notifications',
-  where: {
-    and: [
-      { recipient: { equals: userId } },
-      { isRead: { equals: false } }
-    ]
+    channel: 'orders',
   },
-  sort: '-createdAt'
 })
 
-// Mark notification as read
-await payload.update({
+// What a user can see, with broadcast read state filled in for them
+const { docs } = await payload.find({
   collection: 'notifications',
-  id: notificationId,
-  data: {
-    isRead: true,
-    readAt: new Date()
-  }
+  overrideAccess: false,
+  user,
+  sort: '-createdAt',
 })
 ```
 
-### Read State for Users
+### Read state endpoints
 
-`POST /api/notifications/:id/read` marks a notification read for the signed-in user, and `DELETE` on the same path marks it unread. For a personal notification it sets `isRead`/`readAt` on the notification (only its recipient may do this); for a broadcast it creates or removes that user's `notification-reads` row, so other users are not affected. It answers `{ id, isRead, readAt }`.
+- `POST /api/notifications/:id/read` marks a notification read for the signed-in user.
+- `DELETE /api/notifications/:id/read` marks it unread.
 
-When a signed-in user finds notifications (REST, GraphQL, or the local API with `user`), `isRead`/`readAt` on broadcasts are filled in from that user's receipts. This happens after the query, so `where: { isRead: ... }` cannot filter broadcasts by a user's read state; query `notification-reads` for that.
+Both answer `{ id, isRead, readAt }`. For a personal notification they set `isRead`/`readAt` on the notification (only its recipient may); for a broadcast they create or remove that user's `notification-reads` row, so other users are unaffected. Members cannot `PATCH` a broadcast.
 
-## Plugin Options
+When a signed-in user finds notifications (REST, GraphQL, or the local API with `user`), `isRead`/`readAt` on broadcasts are filled in from that user's receipts after the query. So `where: { isRead: ... }` filters broadcasts on the stored flag, not the user's state; query `notification-reads` for that.
 
-| Option | Type | Default | Description |
-|--------|------|---------|-------------|
-| `channels` | `NotificationChannel[]` | built-in `default` channel | Channel definitions; each notification can be assigned one via its `channel` field |
-| `webPush` | `object` | `undefined` | Web push credentials and behavior — see [WEBPUSH.md](./WEBPUSH.md) |
-| `collectionOverrides` | `object` | `undefined` | Functions that receive and return the generated `notifications`/`pushSubscriptions`/`notificationReads` collection config, for customizing access control, fields, or hooks |
+## Customizing collections
 
-## Examples
-
-### E-commerce Notifications
+Spread the existing config and hooks so the plugin's own behaviour (audience derivation, read state, auto push) stays in place. Example: send an email when a notification is created.
 
 ```typescript
-notificationsPlugin({
-  channels: [
-    { id: 'orders', name: 'Order Updates' },
-    { id: 'products', name: 'Product Updates' },
-    { id: 'customers', name: 'Customer Messages' }
-  ]
-})
-```
-
-### Content Management Notifications
-
-```typescript
-notificationsPlugin({
-  channels: [
-    { id: 'posts', name: 'Blog Posts' },
-    { id: 'pages', name: 'Page Updates' },
-    { id: 'media', name: 'Media Updates' }
-  ]
-})
-```
-
-## Email Notifications
-
-You can add email functionality to notifications using the `collectionOverrides` option. This allows you to add custom hooks to the notifications collection without modifying the plugin code.
-
-### Using Collection Overrides
-
-The key is to preserve existing hooks (like web push) while adding your own:
-
-```typescript
-import { notificationsPlugin } from '@xtr-dev/payload-notifications'
-
-notificationsPlugin({
-  channels: [{ id: 'default', name: 'Default' }],
-  collectionOverrides: {
-    notifications: (config) => ({
-      ...config,
-      hooks: {
-        ...config.hooks, // Preserve existing hooks (web push, etc.)
-        afterChange: [
-          ...(config.hooks?.afterChange || []), // Preserve existing afterChange hooks
-          // Add your custom email hook
-          async ({ doc, operation, req }) => {
-            if (operation === 'create') {
-              // Your email logic here
-            }
-          }
-        ]
-      }
-    })
-  }
-})
-```
-
-### Example: Custom Email Service
-
-```typescript
-import { notificationsPlugin } from '@xtr-dev/payload-notifications'
-import { sendEmail } from './your-email-service'
-import { renderNotificationEmail } from './email-templates'
-
 notificationsPlugin({
   channels: [{ id: 'default', name: 'Default' }],
   collectionOverrides: {
@@ -226,77 +129,51 @@ notificationsPlugin({
       hooks: {
         ...config.hooks,
         afterChange: [
-          ...(config.hooks?.afterChange || []),
+          ...(config.hooks?.afterChange ?? []),
           async ({ doc, operation, req }) => {
-            // Send email when notification is created
-            if (operation === 'create') {
-              try {
-                // Get recipient user details
-                let recipientId = doc.recipient
-                if (typeof recipientId === 'object' && recipientId?.id) {
-                  recipientId = recipientId.id
-                }
-
-                if (!recipientId) {
-                  console.log('No recipient for email notification')
-                  return
-                }
-
-                const recipient = await req.payload.findByID({
-                  collection: 'users',
-                  id: recipientId
-                })
-
-                if (!recipient?.email) {
-                  console.log('Recipient has no email address')
-                  return
-                }
-
-                // Send email
-                await sendEmail({
-                  to: recipient.email,
-                  subject: doc.title,
-                  html: renderNotificationEmail(doc)
-                })
-
-                console.log(`Email sent to ${recipient.email}`)
-              } catch (error) {
-                console.error('Failed to send notification email:', error)
-                // Don't throw - we don't want to prevent notification creation
-              }
-            }
-          }
-        ]
-      }
-    })
-  }
+            if (operation !== 'create' || !doc.recipient) return
+            const id = typeof doc.recipient === 'object' ? doc.recipient.id : doc.recipient
+            const user = await req.payload.findByID({ collection: 'users', id, req })
+            // Don't throw here, or the notification create fails with the email
+            await sendEmail({ to: user.email, subject: doc.title }).catch((err) => req.payload.logger.error(err))
+          },
+        ],
+      },
+    }),
+  },
 })
 ```
 
-**Important Notes:**
-- Always spread existing hooks (`...config.hooks`) to preserve plugin functionality
-- Use the spread operator for hook arrays (`...(config.hooks?.afterChange || [])`)
-- Don't throw errors in hooks if you want to allow notification creation to succeed even if email fails
-- Email sending happens asynchronously after the notification is created
+Fields added this way have no field-level `access`, so members who can update their own notifications can also update those fields. Add `access: { update: ... }` to them if that matters.
 
-## Web Push Notifications
+## Exports
 
-The plugin includes optional web push notifications support for PWA and mobile browser users. For complete setup instructions, configuration options, and usage examples, see [WEBPUSH.md](./WEBPUSH.md).
+| Path | Exports |
+|------|---------|
+| `@xtr-dev/payload-notifications` | `notificationsPlugin` (also default), types `NotificationsPluginOptions`, `NotificationChannel`, `NotificationAudience`, `PushNotificationContent`, `WebPushConfig` |
+| `@xtr-dev/payload-notifications/client` | `ClientPushManager`, `usePushNotifications`, `serviceWorkerCode`, type `PushSubscriptionData` |
+| `@xtr-dev/payload-notifications/rsc` | `WebPushManager`, `createPushNotificationEndpoints`, `createPushSubscriptionsCollection`, types `WebPushConfig`, `PushSubscription`, `NotificationsPluginOptions` |
+| `@xtr-dev/payload-notifications/sw.js` | The ready-to-serve service worker file |
 
-## TypeScript Support
+## Upgrade notes
 
-The plugin includes full TypeScript support. Types are automatically generated based on your configuration.
+### 0.2.0
 
-## Upgrade Notes
+- **Schema:** `notifications` gains an `audience` column and there is a new `notification-reads` collection. On Postgres/SQLite, create and run a migration (`payload migrate:create`, then `payload migrate`). Run `payload generate:types`.
+- **Backfill `audience`:** rows with an empty `audience` are visible only to admins. Review rows without a recipient first (some may belong to users who were already deleted), then:
+  ```sql
+  UPDATE notifications SET audience = 'user' WHERE recipient_id IS NOT NULL;
+  UPDATE notifications SET audience = 'broadcast' WHERE recipient_id IS NULL AND audience IS NULL;
+  ```
+  On MongoDB use the equivalent `updateMany` calls.
+- **Stricter access:** members can no longer create notifications, read other users' notifications, or update broadcasts. Use `POST /api/notifications/:id/read` instead of `PATCH` to mark notifications read. To keep the old behaviour, override `access` via `collectionOverrides.notifications`.
+- **Notifications targeted through `findSubscriptions`** without a recipient are created as broadcasts. Pass `audience: 'user'` to make them admin-only.
+- **Push:** default pushes now link to `webPush.notificationUrl` (default `/`) and set no icon, badge or actions. See [WEBPUSH.md](./WEBPUSH.md#icon-and-badge).
 
-### Unreleased: `push-subscriptions` is always registered
+### 0.1.0
 
-The `push-subscriptions` collection used to be added only when `webPush.enabled` was true. It is now always added (see above), so after upgrading:
-
-- **Postgres / SQLite:** if you never enabled web push, your database gains a new `push_subscriptions` table (plus one for its hasMany `channels` select). Create and run a migration (`payload migrate:create`, then `payload migrate`) before deploying, or let `push: true` create it in development.
-- **MongoDB:** nothing to do; the collection is created on first write.
-- **Types:** run `payload generate:types` once; `push-subscriptions` now appears in the generated types regardless of VAPID configuration.
-- While web push is disabled, the collection is admin-only, so it adds no new access for regular users.
+- `push-subscriptions` is always registered. On Postgres/SQLite, if you never enabled web push, migrate to create its tables. It is admin-only while web push is disabled.
+- Members may only update `isRead`/`readAt` of their own notifications.
 
 ## License
 
