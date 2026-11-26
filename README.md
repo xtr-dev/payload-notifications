@@ -70,10 +70,23 @@ The plugin creates a notifications collection with the following fields:
 - **title** (required text): The notification title
 - **message** (required richText): The notification content
 - **recipient** (optional relationship to `users`): User who should receive the notification (optional if delivery is driven by a custom `findSubscriptions` hook instead)
+- **audience** (select, `user` or `broadcast`): Who can see the notification. Left out on create, it is `broadcast` when there is no recipient and `user` otherwise. A broadcast cannot have a recipient.
 - **channel** (optional select): Which configured channel the notification belongs to
-- **isRead** (checkbox): Read status tracking
+- **isRead** (checkbox): Read status tracking. For broadcasts, reads by a signed-in user return that user's own read state (see below)
 - **readAt** (date): When the notification was read
 - **createdAt/updatedAt**: Automatic timestamps
+
+A `notification-reads` collection stores one row per user and broadcast they have read, because a broadcast is a single row shared by every user. Deleting a user (through Payload) also deletes their personal notifications, read receipts and push subscriptions.
+
+### Default Access
+
+| Operation | Admins (`role === 'admin'`) | Other signed-in users |
+|-----------|-----------------------------|-----------------------|
+| read | all | their own (`recipient` is them) and broadcasts |
+| create, delete | yes | no |
+| update | all fields | `isRead`/`readAt` of their own personal notifications |
+
+Server code that creates notifications through the local API is unaffected, since it bypasses access control by default. A personal notification whose recipient has been removed (for example by deleting the user directly in the database) stays `audience: 'user'` and is only visible to admins.
 
 It also always creates a `push-subscriptions` collection, even when web push is disabled, so generated types and the database schema do not depend on whether VAPID keys are configured. Without `webPush.enabled` the collection simply stays empty: no push endpoints are registered, no pushes are sent, and only admins (`role === 'admin'`) can access it through REST/GraphQL/admin (the local API bypasses access control as usual). See [WEBPUSH.md](./WEBPUSH.md).
 
@@ -125,13 +138,19 @@ await payload.update({
 })
 ```
 
+### Read State for Users
+
+`POST /api/notifications/:id/read` marks a notification read for the signed-in user, and `DELETE` on the same path marks it unread. For a personal notification it sets `isRead`/`readAt` on the notification (only its recipient may do this); for a broadcast it creates or removes that user's `notification-reads` row, so other users are not affected. It answers `{ id, isRead, readAt }`.
+
+When a signed-in user finds notifications (REST, GraphQL, or the local API with `user`), `isRead`/`readAt` on broadcasts are filled in from that user's receipts. This happens after the query, so `where: { isRead: ... }` cannot filter broadcasts by a user's read state; query `notification-reads` for that.
+
 ## Plugin Options
 
 | Option | Type | Default | Description |
 |--------|------|---------|-------------|
 | `channels` | `NotificationChannel[]` | built-in `default` channel | Channel definitions; each notification can be assigned one via its `channel` field |
 | `webPush` | `object` | `undefined` | Web push credentials and behavior — see [WEBPUSH.md](./WEBPUSH.md) |
-| `collectionOverrides` | `object` | `undefined` | Functions that receive and return the generated `notifications`/`pushSubscriptions` collection config, for customizing access control, fields, or hooks |
+| `collectionOverrides` | `object` | `undefined` | Functions that receive and return the generated `notifications`/`pushSubscriptions`/`notificationReads` collection config, for customizing access control, fields, or hooks |
 
 ## Examples
 

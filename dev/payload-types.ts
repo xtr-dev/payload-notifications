@@ -70,6 +70,7 @@ export interface Config {
     users: User;
     notifications: Notification;
     'push-subscriptions': PushSubscription;
+    'notification-reads': NotificationRead;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
     'payload-migrations': PayloadMigration;
@@ -79,12 +80,13 @@ export interface Config {
     users: UsersSelect<false> | UsersSelect<true>;
     notifications: NotificationsSelect<false> | NotificationsSelect<true>;
     'push-subscriptions': PushSubscriptionsSelect<false> | PushSubscriptionsSelect<true>;
+    'notification-reads': NotificationReadsSelect<false> | NotificationReadsSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
     'payload-migrations': PayloadMigrationsSelect<false> | PayloadMigrationsSelect<true>;
   };
   db: {
-    defaultIDType: string;
+    defaultIDType: number;
   };
   globals: {};
   globalsSelect: {};
@@ -120,7 +122,7 @@ export interface UserAuthOperations {
  * via the `definition` "users".
  */
 export interface User {
-  id: string;
+  id: number;
   role: 'admin' | 'customer';
   firstName?: string | null;
   lastName?: string | null;
@@ -142,7 +144,7 @@ export interface User {
  * via the `definition` "notifications".
  */
 export interface Notification {
-  id: string;
+  id: number;
   /**
    * The notification title that will be displayed to users
    */
@@ -168,13 +170,17 @@ export interface Notification {
   /**
    * The user who should receive this notification (optional if using custom recipient fields)
    */
-  recipient?: (string | null) | User;
+  recipient?: (number | null) | User;
+  /**
+   * Who can see this notification. Left empty on create, it becomes "Broadcast" when there is no recipient and "Recipient only" otherwise.
+   */
+  audience?: ('user' | 'broadcast') | null;
   /**
    * The notification channel - only subscribers to this channel will receive the notification
    */
   channel?: ('general' | 'orders' | 'products' | 'marketing') | null;
   /**
-   * Whether this notification has been read by the recipient
+   * Whether the recipient has read this notification. For broadcasts, reads return the requesting user's own read state.
    */
   isRead?: boolean | null;
   /**
@@ -191,11 +197,11 @@ export interface Notification {
  * via the `definition` "push-subscriptions".
  */
 export interface PushSubscription {
-  id: string;
+  id: number;
   /**
    * The user this push subscription belongs to
    */
-  user: string | User;
+  user: number | User;
   /**
    * Push service endpoint URL
    */
@@ -224,28 +230,46 @@ export interface PushSubscription {
   createdAt: string;
 }
 /**
+ * Which user has read which broadcast. Personal notifications use their own Read flag.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notification-reads".
+ */
+export interface NotificationRead {
+  id: number;
+  notification: number | Notification;
+  user: number | User;
+  readAt: string;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-locked-documents".
  */
 export interface PayloadLockedDocument {
-  id: string;
+  id: number;
   document?:
     | ({
         relationTo: 'users';
-        value: string | User;
+        value: number | User;
       } | null)
     | ({
         relationTo: 'notifications';
-        value: string | Notification;
+        value: number | Notification;
       } | null)
     | ({
         relationTo: 'push-subscriptions';
-        value: string | PushSubscription;
+        value: number | PushSubscription;
+      } | null)
+    | ({
+        relationTo: 'notification-reads';
+        value: number | NotificationRead;
       } | null);
   globalSlug?: string | null;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   updatedAt: string;
   createdAt: string;
@@ -255,10 +279,10 @@ export interface PayloadLockedDocument {
  * via the `definition` "payload-preferences".
  */
 export interface PayloadPreference {
-  id: string;
+  id: number;
   user: {
     relationTo: 'users';
-    value: string | User;
+    value: number | User;
   };
   key?: string | null;
   value?:
@@ -278,7 +302,7 @@ export interface PayloadPreference {
  * via the `definition` "payload-migrations".
  */
 export interface PayloadMigration {
-  id: string;
+  id: number;
   name?: string | null;
   batch?: number | null;
   updatedAt: string;
@@ -310,6 +334,7 @@ export interface NotificationsSelect<T extends boolean = true> {
   title?: T;
   message?: T;
   recipient?: T;
+  audience?: T;
   channel?: T;
   isRead?: T;
   readAt?: T;
@@ -328,6 +353,17 @@ export interface PushSubscriptionsSelect<T extends boolean = true> {
   userAgent?: T;
   channels?: T;
   isActive?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "notification-reads_select".
+ */
+export interface NotificationReadsSelect<T extends boolean = true> {
+  notification?: T;
+  user?: T;
+  readAt?: T;
   updatedAt?: T;
   createdAt?: T;
 }

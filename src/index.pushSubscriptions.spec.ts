@@ -37,13 +37,13 @@ describe('push-subscriptions collection registration', () => {
   ] as Array<[string, undefined | WebPushConfig]>)(
     'is registered with %s',
     (_label, webPush) => {
-      expect(slugs(apply(webPush))).toEqual(['notifications', 'push-subscriptions'])
+      expect(slugs(apply(webPush))).toEqual(['notifications', 'push-subscriptions', 'notification-reads'])
     },
   )
 
   it('is registered by the no-argument plugin call', () => {
     const result = notificationsPlugin()(bareConfig())
-    expect(slugs(result)).toEqual(['notifications', 'push-subscriptions'])
+    expect(slugs(result)).toEqual(['notifications', 'push-subscriptions', 'notification-reads'])
   })
 
   it('still applies the pushSubscriptions collection override when web push is disabled', () => {

@@ -16,7 +16,9 @@ src/
 ├── index.ts                         # Plugin entry point and Payload config integration
 ├── types.ts                         # Public plugin option and web push types
 ├── collections/
-│   ├── notifications.ts             # Notification schema and automatic push hook
+│   ├── notifications.ts             # Notification schema, access and automatic push hook
+│   ├── notification-audience.ts     # Audience derivation, per-user broadcast read state, /:id/read endpoints
+│   ├── notification-reads.ts        # Per-user broadcast read receipts
 │   └── push-subscriptions.ts        # Web push subscription schema
 ├── endpoints/
 │   └── push-notifications.ts        # Subscribe, unsubscribe, and VAPID key endpoints
@@ -42,7 +44,7 @@ src/
 The plugin accepts a configuration object with:
 - `channels` (required): An array of `{ id, name, description? }` channel definitions. These become the channel choices on notifications and push subscriptions. Calling `notificationsPlugin()` without options uses the built-in `default` channel.
 - `webPush` (optional): Web push credentials and behavior. It requires `vapidPublicKey`, `vapidPrivateKey`, and `vapidSubject`; it can also set `enabled`, `autoPush`, request `options`, `transformNotification`, and `findSubscriptions`.
-- `collectionOverrides` (optional): Functions that receive and return the generated `notifications` or `pushSubscriptions` `CollectionConfig`, allowing either collection schema to be customized.
+- `collectionOverrides` (optional): Functions that receive and return the generated `notifications`, `pushSubscriptions` or `notificationReads` `CollectionConfig`, allowing each collection schema to be customized.
 
 ### Relationship System
 - The notifications collection has one fixed relationship field, `recipient`, targeting the `users` collection
@@ -52,7 +54,8 @@ The plugin accepts a configuration object with:
 ### Collection Schema
 The notifications collection includes:
 - Required fields: title, message
-- Optional fields: recipient, channel, isRead, readAt
+- Optional fields: recipient, audience, channel, isRead, readAt
+- `audience` (`user` | `broadcast`) decides who can read a notification. Never treat an empty recipient as a broadcast: SQL adapters null the recipient when the user is deleted
 - Automatic timestamps: createdAt, updatedAt
 
 ## Testing Strategy

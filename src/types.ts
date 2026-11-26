@@ -66,6 +66,8 @@ export interface WebPushConfig {
 export interface NotificationsPluginOptions {
   /** Collection configuration */
   collectionOverrides?: {
+    /** The `notification-reads` collection that stores per-user broadcast read receipts */
+    notificationReads?: (config: CollectionConfig) => CollectionConfig
     notifications?: (config: CollectionConfig) => CollectionConfig
     pushSubscriptions?: (config: CollectionConfig) => CollectionConfig
   }
