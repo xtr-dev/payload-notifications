@@ -1,5 +1,14 @@
 # Changelog
 
+## [0.2.0](https://github.com/xtr-dev/payload-notifications/compare/v0.1.0...v0.2.0) - 2026-11-26
+
+### Breaking
+- **push:** link default pushes to a configurable URL and stop referencing icons the package doesn't ship ([#41](https://github.com/xtr-dev/payload-notifications/issues/41)) ([f116ef2](https://github.com/xtr-dev/payload-notifications/commit/f116ef26bc3a50bd245a53c5ae26b0b7fe0409f3))
+- **access:** store an explicit audience, scope read/create access, and track broadcast reads per user ([#40](https://github.com/xtr-dev/payload-notifications/issues/40)) ([ed1a13c](https://github.com/xtr-dev/payload-notifications/commit/ed1a13c165ef9b2920c67f45a50c32d76329fe07))
+
+### Fixes
+- **push:** extract text from Lexical rich text for the default push body ([#42](https://github.com/xtr-dev/payload-notifications/issues/42)) ([936ec9b](https://github.com/xtr-dev/payload-notifications/commit/936ec9bbf3a007f1acd2f36661066f6fddbf8dc0))
+
 ## [0.1.0] - 2026-11-25
 
 ### Breaking
