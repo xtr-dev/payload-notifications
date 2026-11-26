@@ -5,7 +5,10 @@ import { createNotificationsCollection } from './notifications'
 const collection = createNotificationsCollection({
   channels: [{ id: 'general', name: 'General' }],
 })
-const update = collection.access?.update as (args: { req: { user?: { id: string; role?: string } } }) => unknown
+type AccessFn = (args: { req: { user?: { id: string; role?: string } } }) => unknown
+const update = collection.access?.update as AccessFn
+const read = collection.access?.read as AccessFn
+const create = collection.access?.create as AccessFn
 
 function canUpdateField(name: string, user?: { id: string; role?: string }) {
   const field = collection.fields.find((candidate) => 'name' in candidate && candidate.name === name) as {
@@ -17,12 +20,10 @@ function canUpdateField(name: string, user?: { id: string; role?: string }) {
 }
 
 describe('notifications collection update access', () => {
-  test('lets authenticated users update their notifications and recipient-less rows', () => {
+  test('lets authenticated users update only their own personal notifications', () => {
+    // Broadcasts are shared rows, so a member must not be able to update them.
     expect(update({ req: { user: { id: 'user-1' } } })).toEqual({
-      or: [
-        { recipient: { equals: 'user-1' } },
-        { recipient: { exists: false } },
-      ],
+      recipient: { equals: 'user-1' },
     })
   })
 
@@ -49,5 +50,24 @@ describe('notifications collection update access', () => {
     expect(canUpdateField('channel', admin)).toBe(true)
     expect(canUpdateField('isRead', admin)).toBe(true)
     expect(canUpdateField('readAt', admin)).toBe(true)
+  })
+})
+
+describe('notifications collection read and create access', () => {
+  test('members read their own notifications and broadcasts, not rows with an empty recipient', () => {
+    expect(read({ req: { user: { id: 'user-1' } } })).toEqual({
+      or: [
+        { recipient: { equals: 'user-1' } },
+        { audience: { equals: 'broadcast' } },
+      ],
+    })
+    expect(read({ req: {} })).toBe(false)
+    expect(read({ req: { user: { id: 'admin-1', role: 'admin' } } })).toBe(true)
+  })
+
+  test('only admins can create notifications', () => {
+    expect(create({ req: {} })).toBe(false)
+    expect(create({ req: { user: { id: 'user-1' } } })).toBe(false)
+    expect(create({ req: { user: { id: 'admin-1', role: 'admin' } } })).toBe(true)
   })
 })
