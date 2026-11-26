@@ -44,7 +44,7 @@ try {
   // isolates the check to this package's own emitted specifiers instead of
   // tripping over unrelated strictness issues inside payload's own types.
   writeStub(join(consumer, 'node_modules', 'payload'), {
-    'package.json': JSON.stringify({ name: 'payload', version: '0.0.0', types: 'index.d.ts' }),
+    'package.json': JSON.stringify({ name: 'payload', version: '0.0.0', main: 'index.js', types: 'index.d.ts' }),
     'index.d.ts': [
       'export interface CollectionConfig { [key: string]: any }',
       'export interface Field { [key: string]: any }',
@@ -54,6 +54,15 @@ try {
       'export interface Endpoint { [key: string]: any }',
       'export type CollectionAfterOperationHook = (args: any) => any',
       'export type CollectionBeforeValidateHook = (args: any) => any',
+      '',
+    ].join('\n'),
+    // Runtime counterpart for the runtime import check below: the
+    // collections import the `Forbidden` and `ValidationError` error classes
+    // from `payload` as values, so loading `.` needs them to exist.
+    'index.js': [
+      'class Forbidden extends Error {}',
+      'class ValidationError extends Error {}',
+      'module.exports = { Forbidden, ValidationError }',
       '',
     ].join('\n'),
   })
