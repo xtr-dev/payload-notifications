@@ -41,7 +41,7 @@ src/
 ### Plugin Configuration
 The plugin accepts a configuration object with:
 - `channels` (required): An array of `{ id, name, description? }` channel definitions. These become the channel choices on notifications and push subscriptions. Calling `notificationsPlugin()` without options uses the built-in `default` channel.
-- `webPush` (optional): Web push credentials and behavior. It requires `vapidPublicKey`, `vapidPrivateKey`, and `vapidSubject`; it can also set `enabled`, `autoPush`, request `options`, `transformNotification`, and `findSubscriptions`.
+- `webPush` (optional): Web push credentials and behavior. It requires `vapidPublicKey`, `vapidPrivateKey`, and `vapidSubject`; it can also set `enabled`, `autoPush`, request `options`, `notificationUrl` (click URL for the default transformer, default `/`), `transformNotification`, and `findSubscriptions`.
 - `collectionOverrides` (optional): Functions that receive and return the generated `notifications` or `pushSubscriptions` `CollectionConfig`, allowing either collection schema to be customized.
 
 ### Relationship System

@@ -67,6 +67,7 @@ export const notificationsPlugin: NotificationsPlugin = (options = defaultOption
 export type {
   NotificationsPluginOptions,
   NotificationChannel,
+  PushNotificationContent,
   WebPushConfig,
 } from './types.js'
 

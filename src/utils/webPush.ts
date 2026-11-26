@@ -123,8 +123,10 @@ export class WebPushManager {
     const notificationPayload = JSON.stringify({
       title,
       body,
-      icon: options?.icon || '/icon-192x192.png',
-      badge: options?.badge || '/badge-72x72.png',
+      // No icon/badge fallback: the package ships no images, and an absent
+      // value lets the service worker's ?icon=&badge= defaults apply.
+      icon: options?.icon,
+      badge: options?.badge,
       image: options?.image,
       data: options?.data,
       actions: options?.actions,
