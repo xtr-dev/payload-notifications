@@ -88,6 +88,37 @@ export default buildConfig({
           description: 'Special offers, sales, and promotional content',
         }
       ],
+      // Demo of host-added fields. Only the paths in recipientEditableFields
+      // can be changed by a notification's recipient; `priority` and
+      // `preferences.internalNote` stay admin-only like the plugin's own fields.
+      collectionOverrides: {
+        notifications: (collection) => ({
+          ...collection,
+          fields: [
+            ...collection.fields,
+            {
+              name: 'priority',
+              type: 'select',
+              defaultValue: 'normal',
+              options: [
+                { label: 'Low', value: 'low' },
+                { label: 'Normal', value: 'normal' },
+                { label: 'High', value: 'high' },
+              ],
+            },
+            { name: 'archived', type: 'checkbox', defaultValue: false },
+            {
+              name: 'preferences',
+              type: 'group',
+              fields: [
+                { name: 'pinned', type: 'checkbox', defaultValue: false },
+                { name: 'internalNote', type: 'text' },
+              ],
+            },
+          ],
+        }),
+      },
+      recipientEditableFields: ['archived', 'preferences.pinned'],
       webPush: {
         autoPush: true, // Enable automatic push notifications
         enabled: true,

@@ -41,6 +41,7 @@ Called without options, `notificationsPlugin()` uses a single built-in `default`
 | `channels` | `NotificationChannel[]` (`{ id, name, description? }`) | one `default` channel | Choices for a notification's `channel` and a push subscription's `channels` |
 | `webPush` | `WebPushConfig` | `undefined` | VAPID keys and push behaviour, see [WEBPUSH.md](./WEBPUSH.md) |
 | `collectionOverrides` | `{ notifications?, pushSubscriptions?, notificationReads? }` | `undefined` | Functions that receive and return each generated `CollectionConfig` |
+| `recipientEditableFields` | `string[]` | `[]` | Fields of `notifications` a recipient may update on their own notification, besides `isRead`/`readAt`. See [Recipient-editable fields](#recipient-editable-fields) |
 
 ## Collections
 
@@ -73,7 +74,7 @@ Always registered, even without web push, so generated types and the database sc
 |-----------|-----------------------------|-----------------------|
 | read | all | their own (`recipient` is them) and broadcasts |
 | create, delete | yes | no |
-| update | all fields | `isRead`/`readAt` of their own personal notifications |
+| update | all fields | `isRead`/`readAt` and the [`recipientEditableFields`](#recipient-editable-fields) of their own personal notifications |
 
 Anonymous requests get nothing. The local API bypasses access control by default, so server code can create notifications freely. A personal notification whose recipient no longer exists stays `audience: 'user'` and is visible only to admins; an empty recipient is never treated as a broadcast.
 
@@ -144,7 +145,40 @@ notificationsPlugin({
 })
 ```
 
-Fields added this way have no field-level `access`, so members who can update their own notifications can also update those fields. Add `access: { update: ... }` to them if that matters.
+### Recipient-editable fields
+
+A recipient can update only `isRead` and `readAt` on their own notification. Every other field is admin-only for updates, including fields you add through `collectionOverrides.notifications`. List the fields recipients may change in `recipientEditableFields`:
+
+```typescript
+notificationsPlugin({
+  channels: [{ id: 'default', name: 'Default' }],
+  collectionOverrides: {
+    notifications: (config) => ({
+      ...config,
+      fields: [
+        ...config.fields,
+        { name: 'archived', type: 'checkbox' },
+        { name: 'priority', type: 'text' }, // not listed below: admin-only
+        {
+          name: 'preferences',
+          type: 'group',
+          fields: [
+            { name: 'pinned', type: 'checkbox' },
+            { name: 'internalNote', type: 'text' }, // admin-only
+          ],
+        },
+      ],
+    }),
+  },
+  recipientEditableFields: ['archived', 'preferences.pinned'],
+})
+```
+
+- Use dots for nested fields (groups, named tabs, arrays, blocks). A path covers everything below it, so `'preferences'` opens the whole group. Listing a field inside an array or blocks field also lets recipients add and remove its rows.
+- The rule is field-level `access.update`, so it applies to REST, GraphQL and the Local API with `overrideAccess: false`. As with any Payload field access, a change to a field the user may not update is dropped without an error; the rest of the update goes through.
+- A field that is not listed keeps its own `access.update` if it has one, and an admin must pass that too. A listed field is left exactly as you defined it.
+- `recipient` and `audience` cannot be listed, and a path that matches no field throws when the config is built.
+- Recipients still only reach their own personal notifications; this option does not widen which documents they can update.
 
 ## Exports
 
@@ -156,6 +190,10 @@ Fields added this way have no field-level `access`, so members who can update th
 | `@xtr-dev/payload-notifications/sw.js` | The ready-to-serve service worker file |
 
 ## Upgrade notes
+
+### 0.3.0
+
+- **Breaking: fields added through `collectionOverrides.notifications` are admin-only for updates.** Before, a recipient could update any such field on their own notification unless it had its own `access.update`. Now recipients can update only `isRead`/`readAt` and the paths in `recipientEditableFields`; other changes they send are dropped. To keep a field editable by recipients, list it: `recipientEditableFields: ['archived']`. A field with its own `access.update` that non-admins should pass must be listed too (its own rule then applies unchanged). No schema change.
 
 ### 0.2.0
 

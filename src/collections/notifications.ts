@@ -10,6 +10,7 @@ import {
   markNotificationReadEndpoints,
 } from './notification-audience.js'
 import { NOTIFICATION_READS_SLUG } from './notification-reads.js'
+import { restrictRecipientUpdates } from './recipient-field-access.js'
 
 const isAdminUser = (user: any) => Boolean(user?.role === 'admin')
 
@@ -27,8 +28,6 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     throw new Error('No channels defined for notifications plugin')
   }
 
-  const adminOnlyFieldUpdate = ({ req }: { req: any }) => isAdminUser(req.user)
-
   // Members read their own personal notifications and every broadcast. A
   // broadcast is identified by `audience: 'broadcast'`, never by an empty
   // recipient: the recipient relationship is set to null when the user is
@@ -43,7 +42,8 @@ export function createNotificationsCollection(options: NotificationsPluginOption
   }
 
   // Members update only their own personal notifications, and field access
-  // limits them to isRead/readAt. A broadcast row is shared by everyone, so its
+  // (added by restrictRecipientUpdates at the end of this function) limits them
+  // to isRead/readAt plus `recipientEditableFields`. A broadcast row is shared by everyone, so its
   // isRead/readAt cannot be a member's read state; members record broadcast
   // reads as notification-reads receipts (see POST /:id/read) instead.
   const ownPersonal: Access = ({ req }) => {
@@ -67,9 +67,6 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     {
       name: 'title',
       type: 'text',
-      access: {
-        update: adminOnlyFieldUpdate,
-      },
       admin: {
         description: 'The notification title that will be displayed to users',
       },
@@ -79,9 +76,6 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     {
       name: 'message',
       type: 'richText',
-      access: {
-        update: adminOnlyFieldUpdate,
-      },
       admin: {
         description: 'The notification message content',
       },
@@ -91,9 +85,6 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     {
       name: 'recipient',
       type: 'relationship',
-      access: {
-        update: adminOnlyFieldUpdate,
-      },
       admin: {
         description: 'The user who should receive this notification (optional if using custom recipient fields)',
       },
@@ -104,9 +95,6 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     {
       name: 'audience',
       type: 'select',
-      access: {
-        update: adminOnlyFieldUpdate,
-      },
       admin: {
         description: 'Who can see this notification. Left empty on create, it becomes "Broadcast" when there is no recipient and "Recipient only" otherwise.',
         position: 'sidebar',
@@ -121,9 +109,6 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     {
       name: 'channel',
       type: 'select',
-      access: {
-        update: adminOnlyFieldUpdate,
-      },
       admin: {
         description: 'The notification channel - only subscribers to this channel will receive the notification',
         position: 'sidebar',
@@ -324,7 +309,18 @@ export function createNotificationsCollection(options: NotificationsPluginOption
     }
   }
 
-  return options.collectionOverrides?.notifications ?
+  const finalConfig = options.collectionOverrides?.notifications ?
     options.collectionOverrides.notifications(config) :
     config
+
+  // Applied after the host's override so that fields the host added are
+  // admin-only for updates too, unless listed in `recipientEditableFields`.
+  return {
+    ...finalConfig,
+    fields: restrictRecipientUpdates(
+      finalConfig.fields,
+      options.recipientEditableFields ?? [],
+      isAdminUser,
+    ),
+  }
 }
