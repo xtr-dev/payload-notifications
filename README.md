@@ -4,7 +4,7 @@
 
 A PayloadCMS plugin that adds a notifications collection with titles, rich text messages, channels, personal and broadcast audiences, and per-user read state. Web push delivery is optional (see [WEBPUSH.md](./WEBPUSH.md)).
 
-⚠️ **Pre-release Warning**: This package is currently in active development (v0.0.x). Breaking changes may occur before v1.0.0. Not recommended for production use.
+**v0.x** — minor versions may contain breaking changes until 1.0.
 
 ## Installation
 
