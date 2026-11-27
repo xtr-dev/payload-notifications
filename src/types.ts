@@ -79,6 +79,8 @@ export interface NotificationsPluginOptions {
   channels: NotificationChannel[]
   /** Collection configuration */
   collectionOverrides?: {
+    /** The `channel-subscriptions` collection that stores per-user channel opt-ins and opt-outs */
+    channelSubscriptions?: (config: CollectionConfig) => CollectionConfig
     /** The `notification-reads` collection that stores per-user broadcast read receipts */
     notificationReads?: (config: CollectionConfig) => CollectionConfig
     notifications?: (config: CollectionConfig) => CollectionConfig

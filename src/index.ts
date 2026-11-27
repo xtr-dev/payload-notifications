@@ -2,14 +2,16 @@ import type { CollectionBeforeDeleteHook, CollectionConfig, Config } from 'paylo
 
 import type { NotificationsPlugin, NotificationsPluginOptions } from './types.js'
 
+import { createChannelSubscriptionsCollection } from './collections/channel-subscriptions.js'
 import { createNotificationReadsCollection, NOTIFICATION_READS_SLUG } from './collections/notification-reads.js'
 import { createNotificationsCollection } from './collections/notifications.js'
 import { createPushSubscriptionsCollection } from './collections/push-subscriptions.js'
 import { createPushNotificationEndpoints } from './endpoints/push-notifications.js'
+import { CHANNEL_SUBSCRIPTIONS_SLUG } from './utils/channelSubscriptions.js'
 
 /**
- * Deletes a user's personal notifications, broadcast read receipts and push
- * subscriptions before the user is deleted. Runs before the delete so the
+ * Deletes a user's personal notifications, broadcast read receipts, push
+ * subscriptions and channel subscriptions before the user is deleted. Runs before the delete so the
  * rows can still be found by their user id (SQL adapters set the relationship
  * to null when the user row goes away), and in the same transaction via `req`.
  */
@@ -18,6 +20,7 @@ const deleteUserNotificationData: CollectionBeforeDeleteHook = async ({ id, req 
     ['notifications', 'recipient'],
     [NOTIFICATION_READS_SLUG, 'user'],
     ['push-subscriptions', 'user'],
+    [CHANNEL_SUBSCRIPTIONS_SLUG, 'user'],
   ]
   for (const [collection, field] of owned) {
     await req.payload.delete({
@@ -45,6 +48,7 @@ const defaultOptions: NotificationsPluginOptions = {
  * - Title and rich text message content
  * - Personal notifications (with a recipient) and broadcasts (audience: 'broadcast')
  * - Read/unread status tracking, per user for broadcasts
+ * - Per-user channel subscriptions (opt-out) in the `channel-subscriptions` collection
  * - Channel-based targeting via the `channels` option (a built-in `default` channel when called without options)
  * - Optional web push delivery via `webPush`
  * - Collection config overrides via `collectionOverrides`
@@ -82,6 +86,7 @@ export const notificationsPlugin: NotificationsPlugin = (options = defaultOption
       notificationsCollection,
       createPushSubscriptionsCollection(options),
       createNotificationReadsCollection(options),
+      createChannelSubscriptionsCollection(options),
     ]
 
     // The subscribe/unsubscribe/VAPID-key endpoints only exist when web push is
@@ -110,6 +115,20 @@ export type {
   PushNotificationContent,
   WebPushConfig,
 } from './types.js'
+
+// Per-user channel subscriptions (server-side helpers)
+export {
+  CHANNEL_SUBSCRIPTIONS_SLUG,
+  getUnsubscribedChannels,
+  isSubscribedToChannel,
+  listChannelSubscriptions,
+  setChannelSubscription,
+  subscribedChannelsWhere,
+  subscribeToChannel,
+  UnknownChannelError,
+  unsubscribeFromChannel,
+} from './utils/channelSubscriptions.js'
+export type { ChannelSubscriptionState, ChannelSubscriptionUser } from './utils/channelSubscriptions.js'
 
 // Default export
 export default notificationsPlugin

@@ -4,6 +4,8 @@ import webpush from 'web-push'
 
 import type { PushSubscription, WebPushConfig } from '../types.js'
 
+import { isSubscribedToChannel } from './channelSubscriptions.js'
+
 /**
  * Thrown when subscribe is asked to write an endpoint owned by another user.
  * The HTTP handler maps this to 403; other errors stay 500.
@@ -74,7 +76,9 @@ export class WebPushManager {
   }
 
   /**
-   * Send push notification to all active subscriptions for a recipient
+   * Send push notification to all active subscriptions for a recipient.
+   * Nothing is sent to a user who opted out of `options.channel` in the
+   * channel-subscriptions collection; the result is then an empty array.
    */
   public async sendToRecipient(
     recipientId: number|string,
@@ -92,6 +96,18 @@ export class WebPushManager {
       tag?: string
     }
   ): Promise<Array<{ error?: any; success: boolean }>> {
+    // The user's own channel opt-out comes before the per-device channel
+    // filter below. It only applies to user recipients, because text/email
+    // recipients have no user to hold a preference.
+    const isUserRecipient = options?.recipientType !== 'text' && options?.recipientType !== 'email'
+    if (
+      options?.channel &&
+      isUserRecipient &&
+      !(await isSubscribedToChannel({ channel: options.channel, payload: this.payload, user: recipientId }))
+    ) {
+      return []
+    }
+
     // Build query conditions for filtering subscriptions based on recipient type
     const whereConditions: any[] = [
       { isActive: { equals: true } },
