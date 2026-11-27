@@ -3,6 +3,97 @@
   "schemaVersion": 2,
   "versions": [
     {
+      "version": "0.3.0",
+      "date": "2026-11-27",
+      "commit": "55ccb3e",
+      "breaking": true,
+      "groups": {
+        "breaking": [
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "restrict recipient updates to read state and allowlisted fields (#52)",
+            "commit": "338fb97",
+            "hash": "338fb9794d13d3fc12477edd8ee26bd17af78a5b",
+            "author": "Bas",
+            "breaking": true,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Fable 5.2 <noreply@anthropic.com>"
+              }
+            ]
+          }
+        ],
+        "features": [
+          {
+            "type": "feat",
+            "scope": null,
+            "description": "per-user channel subscriptions (#53)",
+            "commit": "f5bcec6",
+            "hash": "f5bcec6d05219aabb70c232c8e2e2157a4e941e0",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Fable 5.2 <noreply@anthropic.com>"
+              }
+            ]
+          }
+        ],
+        "fixes": [
+          {
+            "type": "fix",
+            "scope": null,
+            "description": "restrict recipient updates to read state and allowlisted fields (#52)",
+            "commit": "338fb97",
+            "hash": "338fb9794d13d3fc12477edd8ee26bd17af78a5b",
+            "author": "Bas",
+            "breaking": true,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Fable 5.2 <noreply@anthropic.com>"
+              }
+            ]
+          }
+        ],
+        "other": [
+          {
+            "type": "deps",
+            "scope": null,
+            "description": "move the dev environment to Next 16 and vitest 4 (#54)",
+            "commit": "55ccb3e",
+            "hash": "55ccb3e32842fd12e2d930f0cc501f21a7f3fc6a",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Fable 5.2 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "replace the pre-release warning with a short v0.x note (#51)",
+            "commit": "84dd5d2",
+            "hash": "84dd5d2ca14ff72181b1d5fb63ce016bc81895e7",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Fable 5.2 <noreply@anthropic.com>"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "version": "0.2.1",
       "date": "2026-11-27",
       "commit": "d9869fe",

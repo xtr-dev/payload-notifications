@@ -1,5 +1,17 @@
 # Changelog
 
+## [0.3.0](https://github.com/xtr-dev/payload-notifications/compare/v0.2.1...v0.3.0) - 2026-11-27
+
+### Breaking
+- restrict recipient updates to read state and allowlisted fields ([#52](https://github.com/xtr-dev/payload-notifications/issues/52)) ([338fb97](https://github.com/xtr-dev/payload-notifications/commit/338fb9794d13d3fc12477edd8ee26bd17af78a5b))
+
+### Features
+- per-user channel subscriptions ([#53](https://github.com/xtr-dev/payload-notifications/issues/53)) ([f5bcec6](https://github.com/xtr-dev/payload-notifications/commit/f5bcec6d05219aabb70c232c8e2e2157a4e941e0))
+
+### Other
+- move the dev environment to Next 16 and vitest 4 ([#54](https://github.com/xtr-dev/payload-notifications/issues/54)) ([55ccb3e](https://github.com/xtr-dev/payload-notifications/commit/55ccb3e32842fd12e2d930f0cc501f21a7f3fc6a))
+- replace the pre-release warning with a short v0.x note ([#51](https://github.com/xtr-dev/payload-notifications/issues/51)) ([84dd5d2](https://github.com/xtr-dev/payload-notifications/commit/84dd5d2ca14ff72181b1d5fb63ce016bc81895e7))
+
 ## [0.2.1](https://github.com/xtr-dev/payload-notifications/compare/v0.2.0...v0.2.1) - 2026-11-27
 
 ### Fixes
