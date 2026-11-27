@@ -6,6 +6,11 @@ const dirname = path.dirname(fileURLToPath(import.meta.url))
 
 /** @type {import('next').NextConfig} */
 const nextConfig = {
+  // Next 16 otherwise writes an AGENTS.md into dev/ on every `next dev` start.
+  agentRules: false,
+  // The extensionAlias below is what resolves the plugin source's `./x.js`
+  // import specifiers to their `.ts` files. Turbopack has no equivalent, so
+  // the `dev` script runs Next with `--webpack`.
   webpack: (webpackConfig) => {
     webpackConfig.resolve.extensionAlias = {
       '.cjs': ['.cts', '.cjs'],

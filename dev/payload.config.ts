@@ -134,6 +134,11 @@ export default buildConfig({
   secret: process.env.PAYLOAD_SECRET || 'test-secret_key',
   sharp,
   typescript: {
+    // Outside production Payload otherwise spawns a `payload generate:types`
+    // child on every init (each test run and dev server start). Those children
+    // outlive the test process and pile up. Types are generated on demand with
+    // `pnpm generate:types` instead.
+    autoGenerate: false,
     outputFile: path.resolve(dirname, 'payload-types.ts'),
   },
 })
