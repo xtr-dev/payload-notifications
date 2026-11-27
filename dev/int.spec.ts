@@ -1,9 +1,10 @@
 import type { Payload, SanitizedConfig } from 'payload'
 
 import config from '@payload-config'
+import { GRAPHQL_POST } from '@payloadcms/next/routes'
 import { rm } from 'fs/promises'
 import { basename } from 'path'
-import { createPayloadRequest, getPayload } from 'payload'
+import { createPayloadRequest, getPayload, handleEndpoints } from 'payload'
 import { afterAll, beforeAll, describe, expect, test, vi } from 'vitest'
 import webpush from 'web-push'
 
@@ -595,5 +596,209 @@ describe('notification audience, access and per-user read state', () => {
     expect(reads.docs).toHaveLength(0)
     // The broadcast itself is untouched.
     expect((await payload.findByID({ id: broadcast.id, collection: 'notifications' })).id).toBe(broadcast.id)
+  })
+})
+
+describe('recipient field allowlist (recipientEditableFields)', () => {
+  const message = (text: string) => ({
+    root: {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', text, version: 1 }],
+          direction: 'ltr' as const,
+          format: '' as const,
+          indent: 0,
+          version: 1,
+        },
+      ],
+      direction: 'ltr' as const,
+      format: '' as const,
+      indent: 0,
+      version: 1,
+    },
+  })
+
+  let counter = 0
+  // Creates a user and signs them in, so REST and GraphQL requests can
+  // authenticate with a real JWT instead of a user injected into the request.
+  const createUser = async (role: 'admin' | 'customer') => {
+    const email = `allowlist-${role}-${Date.now()}-${counter++}@example.com`
+    const user = await payload.create({ collection: 'users', data: { email, password: 'test', role } })
+    const { token } = await payload.login({ collection: 'users', data: { email, password: 'test' } })
+    return { token: token!, user }
+  }
+
+  const createPersonal = (recipient: number | string) =>
+    payload.create({
+      collection: 'notifications',
+      data: {
+        channel: 'general',
+        message: message('original'),
+        preferences: { internalNote: 'original note', pinned: false },
+        priority: 'normal',
+        recipient: recipient as number,
+        title: 'Original title',
+      },
+    })
+
+  // Every field a recipient must not be able to change, built-in and
+  // host-added, top-level and nested, together with the allowed ones.
+  const attemptedChange = (otherUserId: number | string) => ({
+    archived: true,
+    audience: 'broadcast',
+    channel: 'marketing',
+    isRead: true,
+    preferences: { internalNote: 'changed note', pinned: true },
+    priority: 'high',
+    readAt: '2026-01-01T00:00:00.000Z',
+    recipient: otherUserId,
+    title: 'Changed title',
+  })
+
+  const stored = (id: number | string) =>
+    payload.findByID({ id, collection: 'notifications', depth: 0 }) as Promise<Record<string, any>>
+
+  // What a recipient's update may have changed: read state and the two
+  // allowlisted paths, and nothing else.
+  const expectOnlyAllowedChanges = (doc: Record<string, any>, recipientId: number | string) => {
+    expect(doc.isRead).toBe(true)
+    expect(doc.readAt).toBe('2026-01-01T00:00:00.000Z')
+    expect(doc.archived).toBe(true)
+    expect(doc.preferences.pinned).toBe(true)
+
+    expect(doc.title).toBe('Original title')
+    expect(doc.channel).toBe('general')
+    expect(doc.audience).toBe('user')
+    expect(doc.recipient).toBe(recipientId)
+    expect(doc.priority).toBe('normal')
+    expect(doc.preferences.internalNote).toBe('original note')
+  }
+
+  test('Local API with overrideAccess: false applies the allowlist to a recipient', async () => {
+    const { user: member } = await createUser('customer')
+    const { user: other } = await createUser('customer')
+    const notification = await createPersonal(member.id)
+
+    await payload.update({
+      id: notification.id,
+      collection: 'notifications',
+      data: attemptedChange(other.id) as any,
+      overrideAccess: false,
+      user: member,
+    })
+
+    expectOnlyAllowedChanges(await stored(notification.id), member.id)
+  })
+
+  test('REST PATCH applies the allowlist to a recipient', async () => {
+    const { token, user: member } = await createUser('customer')
+    const { user: other } = await createUser('customer')
+    const notification = await createPersonal(member.id)
+
+    const response = await handleEndpoints({
+      config,
+      request: new Request(`http://localhost:3000/api/notifications/${notification.id}`, {
+        body: JSON.stringify(attemptedChange(other.id)),
+        headers: { Authorization: `JWT ${token}`, 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+    })
+    expect(response.status).toBe(200)
+
+    expectOnlyAllowedChanges(await stored(notification.id), member.id)
+  })
+
+  test('GraphQL mutation applies the allowlist to a recipient', async () => {
+    const { token, user: member } = await createUser('customer')
+    const { user: other } = await createUser('customer')
+    const notification = await createPersonal(member.id)
+
+    const response = await GRAPHQL_POST(config)(
+      new Request('http://localhost:3000/api/graphql', {
+        body: JSON.stringify({
+          query: `mutation ($id: Int!, $data: mutationNotificationUpdateInput!) {
+            updateNotification(id: $id, data: $data) { id }
+          }`,
+          variables: { id: notification.id, data: attemptedChange(other.id) },
+        }),
+        headers: { Authorization: `JWT ${token}`, 'Content-Type': 'application/json' },
+        method: 'POST',
+      }),
+    )
+    const body = await response.json()
+    expect(body.errors).toBeUndefined()
+    expect(body.data.updateNotification.id).toBe(notification.id)
+
+    expectOnlyAllowedChanges(await stored(notification.id), member.id)
+  })
+
+  test('a recipient can still mark their notification read with a plain update', async () => {
+    const { user: member } = await createUser('customer')
+    const notification = await createPersonal(member.id)
+
+    const updated = await payload.update({
+      id: notification.id,
+      collection: 'notifications',
+      data: { isRead: true },
+      overrideAccess: false,
+      user: member,
+    })
+    expect(updated.isRead).toBe(true)
+  })
+
+  test('an admin can change every field, through the Local API and REST', async () => {
+    const { token, user: admin } = await createUser('admin')
+    const { user: member } = await createUser('customer')
+    const { user: other } = await createUser('customer')
+
+    const viaLocal = await createPersonal(member.id)
+    await payload.update({
+      id: viaLocal.id,
+      collection: 'notifications',
+      data: { ...attemptedChange(other.id), audience: 'user' } as any,
+      overrideAccess: false,
+      user: admin,
+    })
+
+    const viaRest = await createPersonal(member.id)
+    const response = await handleEndpoints({
+      config,
+      request: new Request(`http://localhost:3000/api/notifications/${viaRest.id}`, {
+        body: JSON.stringify({ ...attemptedChange(other.id), audience: 'user' }),
+        headers: { Authorization: `JWT ${token}`, 'Content-Type': 'application/json' },
+        method: 'PATCH',
+      }),
+    })
+    expect(response.status).toBe(200)
+
+    for (const id of [viaLocal.id, viaRest.id]) {
+      const doc = await stored(id)
+      expect(doc.title).toBe('Changed title')
+      expect(doc.channel).toBe('marketing')
+      expect(doc.recipient).toBe(other.id)
+      expect(doc.priority).toBe('high')
+      expect(doc.archived).toBe(true)
+      expect(doc.preferences).toMatchObject({ internalNote: 'changed note', pinned: true })
+      expect(doc.isRead).toBe(true)
+    }
+  })
+
+  test('a member cannot update a notification that is not theirs, even an allowlisted field', async () => {
+    const { user: member } = await createUser('customer')
+    const { user: other } = await createUser('customer')
+    const notification = await createPersonal(other.id)
+
+    await expect(
+      payload.update({
+        id: notification.id,
+        collection: 'notifications',
+        data: { archived: true } as any,
+        overrideAccess: false,
+        user: member,
+      }),
+    ).rejects.toThrow()
+    expect((await stored(notification.id)).archived).toBe(false)
   })
 })

@@ -84,6 +84,19 @@ export interface NotificationsPluginOptions {
     notifications?: (config: CollectionConfig) => CollectionConfig
     pushSubscriptions?: (config: CollectionConfig) => CollectionConfig
   }
+  /**
+   * Fields of the `notifications` collection that a recipient may update on
+   * their own personal notification, in addition to the read state (`isRead`,
+   * `readAt`). Every other field, including fields added through
+   * `collectionOverrides.notifications`, can only be updated by admins
+   * (`role === 'admin'`) when access control applies (REST, GraphQL, and the
+   * Local API with `overrideAccess: false`).
+   *
+   * Use dots for nested fields (`'preferences.pinned'`); a path covers
+   * everything below it. `recipient` and `audience` cannot be listed, and a
+   * path that matches no field throws when the config is built.
+   */
+  recipientEditableFields?: string[]
   /** Web push notification configuration */
   webPush?: WebPushConfig
 }
