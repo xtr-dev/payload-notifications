@@ -3,6 +3,233 @@
   "schemaVersion": 2,
   "versions": [
     {
+      "version": "0.2.1",
+      "date": "2026-11-27",
+      "commit": "d9869fe",
+      "breaking": false,
+      "groups": {
+        "fixes": [
+          {
+            "type": "fix",
+            "scope": "dev",
+            "description": "use the default push transformer in the dev app (#50)",
+            "commit": "d9869fe",
+            "hash": "d9869fe4352924a51642e3032bda6264d3c93887",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "security",
+            "scope": "push",
+            "description": "require auth on /track and validate its body (#44)",
+            "commit": "c33785e",
+            "hash": "c33785eb466e70d4a4b0a90fc642a1aa70fb41a5",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": "dev",
+            "description": "fix module resolution and type errors in the dev app's typecheck (#18)",
+            "commit": "e7c7b31",
+            "hash": "e7c7b31d8aeaae4226eaa180c69d4046c280b0ca",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "titania.90e0 <titania.90e0@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Sonnet 5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": "client",
+            "description": "handle a rejected isSubscribed() check in usePushNotifications (#19)",
+            "commit": "f58f17d",
+            "hash": "f58f17da1b5c52e738dc5129248d64761abf7f7e",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "chunkymoth344.42c1 <chunkymoth344.42c1@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": "types",
+            "description": "move @types/web-push to dependencies so public types resolve (#24)",
+            "commit": "32ff188",
+            "hash": "32ff188e7ff6c547bc554c824925510960070ad7",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "alkaid.3eb5 <alkaid.3eb5@agents.wandel.local>"
+              }
+            ]
+          },
+          {
+            "type": "fix",
+            "scope": "package",
+            "description": "include WEBPUSH.md in the published package (#26)",
+            "commit": "d9d1ff3",
+            "hash": "d9d1ff3666b64f22c0fc15cb4174f0bd186ab91a",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "vela.3e29 <vela.3e29@agents.wandel.local>"
+              }
+            ]
+          }
+        ],
+        "other": [
+          {
+            "type": "ci",
+            "scope": null,
+            "description": "run checks on pull requests (#49)",
+            "commit": "dc76b0e",
+            "hash": "dc76b0e5eb5e10638f44b510987af9d1cd80a42d",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "style",
+            "scope": null,
+            "description": "fix lint errors (#48)",
+            "commit": "52ee55d",
+            "hash": "52ee55d5d53d315939f8f7a7184a38c5f3b114c0",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "audit README and docs for accuracy and brevity (#47)",
+            "commit": "e42ed69",
+            "hash": "e42ed69b4cdc85a4cf3516fc475d39535ca42d53",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "deps",
+            "scope": null,
+            "description": "bump the dev Payload stack to 3.94.2 and refresh the lockfile (#45)",
+            "commit": "ddc6672",
+            "hash": "ddc6672ea42e7112edaafe12c87d884f3ca50770",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "test",
+            "scope": null,
+            "description": "cover plugin defaults, host config preservation, the autoPush gate and push failures (#43)",
+            "commit": "9af876b",
+            "hash": "9af876b4ce8e13c9ecbe3172fba7fb6aa1fa505f",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "docs",
+            "scope": null,
+            "description": "replace the removed relationships API in the package description with channels (#12)",
+            "commit": "a03691a",
+            "hash": "a03691a483da547491f8b25dc0a0ffbdbc303f3d",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "hadar.9136 <hadar.9136@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "alkaid.bfe0 <alkaid.bfe0@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          },
+          {
+            "type": "test",
+            "scope": "build",
+            "description": "import each package subpath at runtime in the packed consumer check (#25)",
+            "commit": "fc2adb7",
+            "hash": "fc2adb70fddac52eb3bd12453dc17f822bf83c62",
+            "author": "Bas",
+            "breaking": false,
+            "notes": [
+              {
+                "title": "Co-authored-by",
+                "text": "feralpanda.759e <feralpanda.759e@agents.wandel.local>"
+              },
+              {
+                "title": "Co-authored-by",
+                "text": "Claude Opus 5.5 <noreply@anthropic.com>"
+              }
+            ]
+          }
+        ]
+      }
+    },
+    {
       "version": "0.2.0",
       "date": "2026-11-26",
       "commit": "936ec9b",

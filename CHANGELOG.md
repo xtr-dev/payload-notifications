@@ -1,5 +1,24 @@
 # Changelog
 
+## [0.2.1](https://github.com/xtr-dev/payload-notifications/compare/v0.2.0...v0.2.1) - 2026-11-27
+
+### Fixes
+- **dev:** use the default push transformer in the dev app ([#50](https://github.com/xtr-dev/payload-notifications/issues/50)) ([d9869fe](https://github.com/xtr-dev/payload-notifications/commit/d9869fe4352924a51642e3032bda6264d3c93887))
+- **push:** require auth on /track and validate its body ([#44](https://github.com/xtr-dev/payload-notifications/issues/44)) ([c33785e](https://github.com/xtr-dev/payload-notifications/commit/c33785eb466e70d4a4b0a90fc642a1aa70fb41a5))
+- **dev:** fix module resolution and type errors in the dev app's typecheck ([#18](https://github.com/xtr-dev/payload-notifications/issues/18)) ([e7c7b31](https://github.com/xtr-dev/payload-notifications/commit/e7c7b31d8aeaae4226eaa180c69d4046c280b0ca))
+- **client:** handle a rejected isSubscribed() check in usePushNotifications ([#19](https://github.com/xtr-dev/payload-notifications/issues/19)) ([f58f17d](https://github.com/xtr-dev/payload-notifications/commit/f58f17da1b5c52e738dc5129248d64761abf7f7e))
+- **types:** move @types/web-push to dependencies so public types resolve ([#24](https://github.com/xtr-dev/payload-notifications/issues/24)) ([32ff188](https://github.com/xtr-dev/payload-notifications/commit/32ff188e7ff6c547bc554c824925510960070ad7))
+- **package:** include WEBPUSH.md in the published package ([#26](https://github.com/xtr-dev/payload-notifications/issues/26)) ([d9d1ff3](https://github.com/xtr-dev/payload-notifications/commit/d9d1ff3666b64f22c0fc15cb4174f0bd186ab91a))
+
+### Other
+- run checks on pull requests ([#49](https://github.com/xtr-dev/payload-notifications/issues/49)) ([dc76b0e](https://github.com/xtr-dev/payload-notifications/commit/dc76b0e5eb5e10638f44b510987af9d1cd80a42d))
+- fix lint errors ([#48](https://github.com/xtr-dev/payload-notifications/issues/48)) ([52ee55d](https://github.com/xtr-dev/payload-notifications/commit/52ee55d5d53d315939f8f7a7184a38c5f3b114c0))
+- audit README and docs for accuracy and brevity ([#47](https://github.com/xtr-dev/payload-notifications/issues/47)) ([e42ed69](https://github.com/xtr-dev/payload-notifications/commit/e42ed69b4cdc85a4cf3516fc475d39535ca42d53))
+- bump the dev Payload stack to 3.94.2 and refresh the lockfile ([#45](https://github.com/xtr-dev/payload-notifications/issues/45)) ([ddc6672](https://github.com/xtr-dev/payload-notifications/commit/ddc6672ea42e7112edaafe12c87d884f3ca50770))
+- cover plugin defaults, host config preservation, the autoPush gate and push failures ([#43](https://github.com/xtr-dev/payload-notifications/issues/43)) ([9af876b](https://github.com/xtr-dev/payload-notifications/commit/9af876b4ce8e13c9ecbe3172fba7fb6aa1fa505f))
+- replace the removed relationships API in the package description with channels ([#12](https://github.com/xtr-dev/payload-notifications/issues/12)) ([a03691a](https://github.com/xtr-dev/payload-notifications/commit/a03691a483da547491f8b25dc0a0ffbdbc303f3d))
+- **build:** import each package subpath at runtime in the packed consumer check ([#25](https://github.com/xtr-dev/payload-notifications/issues/25)) ([fc2adb7](https://github.com/xtr-dev/payload-notifications/commit/fc2adb70fddac52eb3bd12453dc17f822bf83c62))
+
 ## [0.2.0](https://github.com/xtr-dev/payload-notifications/compare/v0.1.0...v0.2.0) - 2026-11-26
 
 ### Breaking
