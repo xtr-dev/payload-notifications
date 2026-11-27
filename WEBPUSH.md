@@ -64,8 +64,8 @@ The service worker handles the `view` and `dismiss` actions; `data.url` is opene
 
 With `autoPush`, each newly created notification is pushed:
 
-- **Default:** to the active subscriptions of its `recipient` that include the notification's `channel` (all of the recipient's subscriptions when the notification has no channel). A notification without a recipient, such as a broadcast, is **not** pushed unless you set `findSubscriptions`.
-- **With `findSubscriptions`:** to the subscription documents it returns.
+- **Default:** to the active subscriptions of its `recipient` that include the notification's `channel` (all of the recipient's subscriptions when the notification has no channel). A notification without a recipient, such as a broadcast, is **not** pushed unless you set `findSubscriptions`. A recipient who opted out of the notification's channel ([channel subscriptions](./README.md#channel-subscriptions)) gets no push, whatever their devices' `channels` say.
+- **With `findSubscriptions`:** to the subscription documents it returns. Channel opt-outs are not applied for you here; check `isSubscribedToChannel` from the main entry if they should be.
 
 Failures are logged and never fail the create. Subscriptions that answer 404 or 410 are marked `isActive: false`.
 

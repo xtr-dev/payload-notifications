@@ -2,6 +2,15 @@ import type { Payload, SanitizedConfig } from 'payload'
 
 import config from '@payload-config'
 import { GRAPHQL_POST } from '@payloadcms/next/routes'
+import {
+  getUnsubscribedChannels,
+  isSubscribedToChannel,
+  listChannelSubscriptions,
+  subscribedChannelsWhere,
+  subscribeToChannel,
+  UnknownChannelError,
+  unsubscribeFromChannel,
+} from '@xtr-dev/payload-notifications'
 import { rm } from 'fs/promises'
 import { basename } from 'path'
 import { createPayloadRequest, getPayload, handleEndpoints } from 'payload'
@@ -800,5 +809,278 @@ describe('recipient field allowlist (recipientEditableFields)', () => {
       }),
     ).rejects.toThrow()
     expect((await stored(notification.id)).archived).toBe(false)
+  })
+})
+
+describe('channel subscriptions', () => {
+  const message = (text: string) => ({
+    root: {
+      type: 'root',
+      children: [
+        {
+          type: 'paragraph',
+          children: [{ type: 'text', text, version: 1 }],
+          direction: 'ltr' as const,
+          format: '' as const,
+          indent: 0,
+          version: 1,
+        },
+      ],
+      direction: 'ltr' as const,
+      format: '' as const,
+      indent: 0,
+      version: 1,
+    },
+  })
+
+  let counter = 0
+  // Creates a user and signs them in, so REST requests authenticate with a
+  // real JWT and go through Payload's router and access control.
+  const createUser = async (role: 'admin' | 'customer' = 'customer') => {
+    const email = `channels-${role}-${Date.now()}-${counter++}@example.com`
+    const user = await payload.create({ collection: 'users', data: { email, password: 'test', role } })
+    const { token } = await payload.login({ collection: 'users', data: { email, password: 'test' } })
+    return { token: token!, user }
+  }
+
+  const rest = (path: string, method: string, token?: string, body?: unknown) =>
+    handleEndpoints({
+      config,
+      request: new Request(`http://localhost:3000/api${path}`, {
+        body: body === undefined ? undefined : JSON.stringify(body),
+        headers: {
+          ...(token ? { Authorization: `JWT ${token}` } : {}),
+          ...(body === undefined ? {} : { 'Content-Type': 'application/json' }),
+        },
+        method,
+      }),
+    })
+
+  test('the collection is registered with the configured channels', () => {
+    const fields = payload.collections['channel-subscriptions'].config.fields
+    const channelField = fields.find((f) => 'name' in f && f.name === 'channel')
+    expect((channelField as { options: { value: string }[] }).options.map((o) => o.value)).toEqual(
+      CONFIGURED_CHANNEL_IDS,
+    )
+  })
+
+  test('a user without any record is subscribed to every channel', async () => {
+    const { user } = await createUser()
+
+    const channels = await listChannelSubscriptions({ payload, user })
+    expect(channels.map((channel) => channel.id)).toEqual(CONFIGURED_CHANNEL_IDS)
+    expect(channels.every((channel) => channel.subscribed)).toBe(true)
+    expect(channels[0]).toMatchObject({ id: 'general', name: 'General Notifications' })
+    expect(await isSubscribedToChannel({ channel: 'orders', payload, user })).toBe(true)
+    expect(await getUnsubscribedChannels({ payload, user })).toEqual([])
+    expect(await subscribedChannelsWhere({ payload, user })).toEqual({})
+  })
+
+  test('helpers opt a user out and back in, keeping one row per user and channel', async () => {
+    const { user } = await createUser()
+    const { user: other } = await createUser()
+
+    expect(await unsubscribeFromChannel({ channel: 'marketing', payload, user })).toMatchObject({
+      id: 'marketing',
+      subscribed: false,
+    })
+    expect(await isSubscribedToChannel({ channel: 'marketing', payload, user: user.id })).toBe(false)
+    expect(await isSubscribedToChannel({ channel: 'orders', payload, user })).toBe(true)
+    // Another user's subscriptions are unaffected.
+    expect(await isSubscribedToChannel({ channel: 'marketing', payload, user: other })).toBe(true)
+
+    await unsubscribeFromChannel({ channel: 'marketing', payload, user })
+    await subscribeToChannel({ channel: 'marketing', payload, user })
+    expect(await isSubscribedToChannel({ channel: 'marketing', payload, user })).toBe(true)
+
+    const { totalDocs } = await payload.count({
+      collection: 'channel-subscriptions',
+      where: { user: { equals: user.id } },
+    })
+    expect(totalDocs).toBe(1)
+  })
+
+  test('helpers reject a channel that is not configured', async () => {
+    const { user } = await createUser()
+    await expect(unsubscribeFromChannel({ channel: 'nope', payload, user })).rejects.toBeInstanceOf(
+      UnknownChannelError,
+    )
+  })
+
+  test('REST endpoints let a signed-in user list and change their own subscriptions', async () => {
+    const { token, user } = await createUser()
+
+    expect((await rest('/channel-subscriptions/me', 'GET')).status).toBe(401)
+    expect((await rest('/channel-subscriptions/me/orders', 'DELETE')).status).toBe(401)
+    expect((await rest('/channel-subscriptions/me/orders', 'POST')).status).toBe(401)
+
+    const optOut = await rest('/channel-subscriptions/me/orders', 'DELETE', token)
+    expect(optOut.status).toBe(200)
+    expect(await optOut.json()).toEqual({ channel: 'orders', subscribed: false })
+
+    const listed = await rest('/channel-subscriptions/me', 'GET', token)
+    expect(listed.status).toBe(200)
+    const { channels } = await listed.json()
+    expect(channels.map((c: { id: string; subscribed: boolean }) => [c.id, c.subscribed])).toEqual([
+      ['general', true],
+      ['orders', false],
+      ['products', true],
+      ['marketing', true],
+    ])
+    expect(await isSubscribedToChannel({ channel: 'orders', payload, user })).toBe(false)
+
+    const optIn = await rest('/channel-subscriptions/me/orders', 'POST', token)
+    expect(await optIn.json()).toEqual({ channel: 'orders', subscribed: true })
+    expect(await isSubscribedToChannel({ channel: 'orders', payload, user })).toBe(true)
+
+    expect((await rest('/channel-subscriptions/me/nope', 'DELETE', token)).status).toBe(404)
+  })
+
+  test("a user manages only their own records; an admin manages everyone's", async () => {
+    const { token: tokenA, user: memberA } = await createUser()
+    const { user: memberB } = await createUser()
+    const { token: adminToken } = await createUser('admin')
+
+    await unsubscribeFromChannel({ channel: 'products', payload, user: memberB })
+    const {
+      docs: [recordB],
+    } = await payload.find({
+      collection: 'channel-subscriptions',
+      where: { user: { equals: memberB.id } },
+    })
+
+    // A cannot see, change or delete B's record through REST.
+    const listedByA = await (await rest('/channel-subscriptions', 'GET', tokenA)).json()
+    expect(listedByA.docs).toEqual([])
+    expect((await rest(`/channel-subscriptions/${recordB.id}`, 'GET', tokenA)).status).not.toBe(200)
+    expect(
+      (await rest(`/channel-subscriptions/${recordB.id}`, 'PATCH', tokenA, { subscribed: true })).status,
+    ).not.toBe(200)
+    expect((await rest(`/channel-subscriptions/${recordB.id}`, 'DELETE', tokenA)).status).not.toBe(200)
+    expect(await isSubscribedToChannel({ channel: 'products', payload, user: memberB })).toBe(false)
+
+    // A record that A creates for B's user id is stored as A's own.
+    const created = await rest('/channel-subscriptions', 'POST', tokenA, {
+      channel: 'general',
+      subscribed: false,
+      user: memberB.id,
+    })
+    expect(created.status).toBe(201)
+    expect(await isSubscribedToChannel({ channel: 'general', payload, user: memberB })).toBe(true)
+    expect(await isSubscribedToChannel({ channel: 'general', payload, user: memberA })).toBe(false)
+
+    // The same holds for the Local API with access control on.
+    await expect(
+      payload.update({
+        id: recordB.id,
+        collection: 'channel-subscriptions',
+        data: { subscribed: true },
+        overrideAccess: false,
+        user: memberA,
+      }),
+    ).rejects.toThrow()
+
+    // An admin can read and change B's record.
+    const listedByAdmin = await (
+      await rest(`/channel-subscriptions?where[user][equals]=${memberB.id}`, 'GET', adminToken)
+    ).json()
+    expect(listedByAdmin.docs).toHaveLength(1)
+    const patched = await rest(`/channel-subscriptions/${recordB.id}`, 'PATCH', adminToken, {
+      subscribed: true,
+    })
+    expect(patched.status).toBe(200)
+    expect(await isSubscribedToChannel({ channel: 'products', payload, user: memberB })).toBe(true)
+
+    // Anonymous requests get nothing.
+    expect((await rest('/channel-subscriptions', 'GET')).status).toBe(403)
+  })
+
+  test('a push is not sent to a recipient who opted out of the notification channel', async () => {
+    const { user } = await createUser()
+    // A device subscription without a channel filter receives every channel,
+    // so only the user's own opt-out can stop the push below.
+    await payload.create({
+      collection: 'push-subscriptions',
+      data: {
+        auth: 'auth-key',
+        endpoint: `https://push.example/channel-opt-out-${user.id}`,
+        isActive: true,
+        p256dh: 'p256dh-key',
+        user: user.id,
+      },
+    })
+    await unsubscribeFromChannel({ channel: 'marketing', payload, user })
+
+    const sendNotification = vi
+      .spyOn(webpush, 'sendNotification')
+      .mockResolvedValue({ body: '', headers: {}, statusCode: 201 })
+    const setVapidDetails = vi.spyOn(webpush, 'setVapidDetails').mockImplementation(() => undefined)
+    const send = (channel?: 'general' | 'marketing') =>
+      payload.create({
+        collection: 'notifications',
+        data: { channel, message: message('hello'), recipient: user.id, title: `To ${channel}` },
+      })
+
+    try {
+      const optedOut = await send('marketing')
+      expect(sendNotification).not.toHaveBeenCalled()
+      // The notification itself is still stored for the in-app inbox.
+      expect(optedOut.id).toBeDefined()
+
+      await send('general')
+      expect(sendNotification).toHaveBeenCalledTimes(1)
+
+      // A notification without a channel is not subject to channel opt-outs.
+      await send()
+      expect(sendNotification).toHaveBeenCalledTimes(2)
+
+      await subscribeToChannel({ channel: 'marketing', payload, user })
+      await send('marketing')
+      expect(sendNotification).toHaveBeenCalledTimes(3)
+    } finally {
+      sendNotification.mockRestore()
+      setVapidDetails.mockRestore()
+    }
+  })
+
+  test('subscribedChannelsWhere hides opted-out channels from an inbox query', async () => {
+    const { user } = await createUser()
+    const create = (title: string, data: { channel?: 'general' | 'marketing'; recipient?: number }) =>
+      payload.create({ collection: 'notifications', data: { ...data, message: message(title), title } })
+
+    const personalMarketing = await create('personal marketing', { channel: 'marketing', recipient: user.id })
+    const personalGeneral = await create('personal general', { channel: 'general', recipient: user.id })
+    const personalNoChannel = await create('personal no channel', { recipient: user.id })
+    const broadcastMarketing = await create('broadcast marketing', { channel: 'marketing' })
+    const broadcastNoChannel = await create('broadcast no channel', {})
+
+    await unsubscribeFromChannel({ channel: 'marketing', payload, user })
+
+    const { docs } = await payload.find({
+      collection: 'notifications',
+      overrideAccess: false,
+      pagination: false,
+      user,
+      where: await subscribedChannelsWhere({ payload, user }),
+    })
+    const ids = docs.map((doc) => doc.id)
+    expect(ids).toContain(personalGeneral.id)
+    expect(ids).toContain(personalNoChannel.id)
+    expect(ids).toContain(broadcastNoChannel.id)
+    expect(ids).not.toContain(personalMarketing.id)
+    expect(ids).not.toContain(broadcastMarketing.id)
+  })
+
+  test('deleting a user deletes their channel subscriptions', async () => {
+    const { user } = await createUser()
+    await unsubscribeFromChannel({ channel: 'orders', payload, user })
+
+    await payload.delete({ id: user.id, collection: 'users' })
+
+    const { totalDocs } = await payload.count({
+      collection: 'channel-subscriptions',
+      where: { channel: { equals: 'orders' }, user: { equals: user.id } },
+    })
+    expect(totalDocs).toBe(0)
   })
 })

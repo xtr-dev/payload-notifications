@@ -71,6 +71,7 @@ export interface Config {
     notifications: Notification;
     'push-subscriptions': PushSubscription;
     'notification-reads': NotificationRead;
+    'channel-subscriptions': ChannelSubscription;
     'payload-kv': PayloadKv;
     'payload-locked-documents': PayloadLockedDocument;
     'payload-preferences': PayloadPreference;
@@ -82,6 +83,7 @@ export interface Config {
     notifications: NotificationsSelect<false> | NotificationsSelect<true>;
     'push-subscriptions': PushSubscriptionsSelect<false> | PushSubscriptionsSelect<true>;
     'notification-reads': NotificationReadsSelect<false> | NotificationReadsSelect<true>;
+    'channel-subscriptions': ChannelSubscriptionsSelect<false> | ChannelSubscriptionsSelect<true>;
     'payload-kv': PayloadKvSelect<false> | PayloadKvSelect<true>;
     'payload-locked-documents': PayloadLockedDocumentsSelect<false> | PayloadLockedDocumentsSelect<true>;
     'payload-preferences': PayloadPreferencesSelect<false> | PayloadPreferencesSelect<true>;
@@ -263,6 +265,23 @@ export interface NotificationRead {
   createdAt: string;
 }
 /**
+ * Per-user channel opt-ins and opt-outs. A user without a row for a channel is subscribed to it.
+ *
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "channel-subscriptions".
+ */
+export interface ChannelSubscription {
+  id: number;
+  user: number | User;
+  channel: 'general' | 'orders' | 'products' | 'marketing';
+  /**
+   * Unchecked means the user opted out of this channel.
+   */
+  subscribed: boolean;
+  updatedAt: string;
+  createdAt: string;
+}
+/**
  * This interface was referenced by `Config`'s JSON-Schema
  * via the `definition` "payload-kv".
  */
@@ -301,6 +320,10 @@ export interface PayloadLockedDocument {
     | ({
         relationTo: 'notification-reads';
         value: number | NotificationRead;
+      } | null)
+    | ({
+        relationTo: 'channel-subscriptions';
+        value: number | ChannelSubscription;
       } | null);
   globalSlug?: string | null;
   user: {
@@ -416,6 +439,17 @@ export interface NotificationReadsSelect<T extends boolean = true> {
   notification?: T;
   user?: T;
   readAt?: T;
+  updatedAt?: T;
+  createdAt?: T;
+}
+/**
+ * This interface was referenced by `Config`'s JSON-Schema
+ * via the `definition` "channel-subscriptions_select".
+ */
+export interface ChannelSubscriptionsSelect<T extends boolean = true> {
+  user?: T;
+  channel?: T;
+  subscribed?: T;
   updatedAt?: T;
   createdAt?: T;
 }
